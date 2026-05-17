@@ -14,34 +14,16 @@ Phân tích traffic GA4 + GSC theo chiều sâu — trend, content decay, CTR op
 - Python 3.10+ — kiểm tra: `python3 --version`
 - Google account có quyền **Viewer** GA4 property + **Full User** Google Search Console
 
-### 2. Import skill vào Claude Code
+### 2. Tải file `.skill`
 
-1. Mở Claude Code → **Settings** (⚙ góc dưới trái) → tab **Skills**
-2. Click **+ Add skill** → chọn file `seo-analyst.skill`
-3. Gõ `/` trong chat → `/seo-analyst` xuất hiện trong gợi ý là OK
+Tải [`dist/seo-analyst.skill`](../dist/seo-analyst.skill) từ thư mục `dist/` của repo này.
 
-### 3. Setup OAuth Client (1 lần duy nhất)
+### 3. Import vào Claude Code
 
-Khi chạy `/seo-analyst` lần đầu, skill sẽ hướng dẫn bạn:
-
-1. Vào [Google Cloud Console](https://console.cloud.google.com/)
-2. Tạo/chọn project → bật 4 APIs:
-   - **Google Analytics Data API**
-   - **Google Analytics Admin API**
-   - **Google Search Console API**
-   - **Google Sheets API**
-3. **Credentials → Create OAuth Client ID** → Desktop app → Download JSON
-4. Lưu file JSON vào `~/Downloads/client_secret.json`
-5. **OAuth consent screen → Test users** → thêm email Google của bạn
-
-Sau đó copy template và điền thông tin:
-
-```bash
-cp oauth_client.example.json oauth_client.json
-# Mở oauth_client.json và điền client_id + client_secret từ file download
-```
-
-> **Bảo mật:** `oauth_client.json` chứa client secret — đã được `.gitignore`. Không commit file này.
+1. Mở Claude Code → click **⚙ Settings** (góc dưới trái)
+2. Chọn tab **Skills** → click **+ Add skill**
+3. Chọn file `seo-analyst.skill` vừa tải → **Open**
+4. Gõ `/` trong chat → `/seo-analyst` xuất hiện trong gợi ý là OK
 
 ### 4. Lần đầu chạy
 

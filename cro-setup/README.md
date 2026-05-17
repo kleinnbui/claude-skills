@@ -19,32 +19,16 @@ Tự động cài đặt toàn bộ CRO measurement lên GTM + GA4 trong vài ph
 - Python 3.10+ — kiểm tra: `python3 --version`
 - Google account có quyền **Edit** GTM container + **Editor/Admin** GA4 property
 
-### 2. Import skill vào Claude Code
+### 2. Tải file `.skill`
 
-1. Mở Claude Code → **Settings** (⚙ góc dưới trái) → tab **Skills**
-2. Click **+ Add skill** → chọn file `cro-setup.skill`
-3. Gõ `/` trong chat → `/cro-setup` xuất hiện trong gợi ý là OK
+Tải [`dist/cro-setup.skill`](../dist/cro-setup.skill) từ thư mục `dist/` của repo này.
 
-### 3. Setup OAuth Client (1 lần duy nhất)
+### 3. Import vào Claude Code
 
-Khi chạy `/cro-setup` lần đầu, skill sẽ hướng dẫn bạn:
-
-1. Vào [Google Cloud Console](https://console.cloud.google.com/)
-2. Tạo/chọn project → bật 2 APIs:
-   - **Tag Manager API**
-   - **Google Analytics Admin API**
-3. **Credentials → Create OAuth Client ID** → Desktop app → Download JSON
-4. Lưu file JSON vào `~/Downloads/client_secret.json`
-5. **OAuth consent screen → Test users** → thêm email Google của bạn
-
-Sau đó copy `oauth_client.example.json` thành `oauth_client.json` và điền thông tin:
-
-```bash
-cp oauth_client.example.json oauth_client.json
-# Mở oauth_client.json và điền client_id + client_secret từ file download
-```
-
-> **Bảo mật:** `oauth_client.json` chứa client secret — đã được `.gitignore`. Không commit file này.
+1. Mở Claude Code → click **⚙ Settings** (góc dưới trái)
+2. Chọn tab **Skills** → click **+ Add skill**
+3. Chọn file `cro-setup.skill` vừa tải → **Open**
+4. Gõ `/` trong chat → `/cro-setup` xuất hiện trong gợi ý là OK
 
 ### 4. Lần đầu chạy
 
@@ -52,13 +36,13 @@ cp oauth_client.example.json oauth_client.json
 /cro-setup
 ```
 
-Skill tự cài Python dependencies (~30s), sau đó hướng dẫn qua 6 bước:
-1. Setup OAuth client (đã làm ở trên → skip)
-2. Đăng nhập Google + chọn GTM container
-3. Chọn GA4 property
-4. Wizard Q&A (forms, conversions, A/B tests)
-5. Preview dry-run
-6. Apply → tạo GTM version (không auto publish)
+Skill tự cài Python dependencies (~30s), sau đó hướng dẫn toàn bộ qua wizard — không cần đọc tài liệu trước:
+
+1. **Setup OAuth client** (1 lần duy nhất) — tạo OAuth Client ID trên Google Cloud Console, bật Tag Manager API + Google Analytics Admin API
+2. **Đăng nhập Google** → chọn GTM container + GA4 property
+3. **Wizard Q&A** — khai báo forms, other conversions, A/B tests
+4. **Preview dry-run** — xem trước những gì sẽ được tạo
+5. **Apply** → tạo GTM version (không auto publish — bạn tự QA rồi Publish)
 
 ---
 

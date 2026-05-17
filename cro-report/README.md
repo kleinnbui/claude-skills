@@ -18,11 +18,16 @@ Sinh báo cáo HTML self-contained từ GA4 data của CRO Engine. Mở thẳng 
 
 > **Lưu ý:** Nếu đã có `/cro-setup`, skill này reuse toàn bộ OAuth + profiles → không cần setup thêm.
 
-### 2. Import skill vào Claude Code
+### 2. Tải file `.skill`
 
-1. Mở Claude Code → **Settings** (⚙ góc dưới trái) → tab **Skills**
-2. Click **+ Add skill** → chọn file `cro-report.skill`
-3. Gõ `/` trong chat → `/cro-report` xuất hiện trong gợi ý là OK
+Tải [`dist/cro-report.skill`](../dist/cro-report.skill) từ thư mục `dist/` của repo này.
+
+### 3. Import vào Claude Code
+
+1. Mở Claude Code → click **⚙ Settings** (góc dưới trái)
+2. Chọn tab **Skills** → click **+ Add skill**
+3. Chọn file `cro-report.skill` vừa tải → **Open**
+4. Gõ `/` trong chat → `/cro-report` xuất hiện trong gợi ý là OK
 
 ### 3. Lần đầu chạy
 

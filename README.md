@@ -2,7 +2,47 @@
 
 Bộ 3 skills cho Claude Code giúp tự động hóa CRO measurement và phân tích SEO traffic, không cần click thủ công hay copy-paste terminal.
 
-> Tất cả skills yêu cầu **Claude Code** (CLI hoặc desktop app) — không hoạt động trên Claude.ai web.
+> Yêu cầu **Claude Code** (CLI hoặc desktop app) — không hoạt động trên Claude.ai web.
+
+---
+
+## Cài đặt nhanh
+
+### Bước 1 — Cài Claude Code & Python
+
+- Claude Code: [claude.ai/download](https://claude.ai/download) (Mac hoặc Windows)
+- Python 3.10+: [python.org/downloads](https://www.python.org/downloads/) — kiểm tra bằng `python3 --version`
+
+### Bước 2 — Tải file `.skill`
+
+Vào thư mục [`dist/`](./dist/) và tải file `.skill` của skill bạn muốn dùng:
+
+| File | Skill |
+|------|-------|
+| [`dist/cro-setup.skill`](./dist/cro-setup.skill) | `/cro-setup` — CRO Measurement Auto-Installer |
+| [`dist/cro-report.skill`](./dist/cro-report.skill) | `/cro-report` — CRO Report Generator |
+| [`dist/seo-analyst.skill`](./dist/seo-analyst.skill) | `/seo-analyst` — SEO Traffic Analyst |
+
+### Bước 3 — Import vào Claude Code
+
+1. Mở Claude Code → click **⚙ Settings** (góc dưới trái)
+2. Chọn tab **Skills** → click **+ Add skill**
+3. Chọn file `.skill` vừa tải → **Open**
+4. Skill xuất hiện trong danh sách là OK
+
+**Kiểm tra:** Gõ `/` trong chat → tên skill xuất hiện trong gợi ý.
+
+### Bước 4 — Thứ tự cài đặt khuyến nghị
+
+```
+/cro-setup  →  /cro-report  →  /seo-analyst
+```
+
+`/cro-report` reuse OAuth + profiles của `/cro-setup` → setup 1 lần dùng cho cả 2.
+
+### Bước 5 — Chạy lần đầu
+
+Gõ tên skill trong chat (vd: `/cro-setup`). Skill sẽ tự hướng dẫn từng bước — không cần đọc tài liệu trước.
 
 ---
 
@@ -46,70 +86,15 @@ Phân tích traffic GA4 + GSC theo chiều sâu. Hỏi bằng ngôn ngữ tự n
 
 ---
 
-## Cài đặt nhanh
-
-### 1. Cài Claude Code
-
-Tải tại [claude.ai/download](https://claude.ai/download) (Mac hoặc Windows).
-
-### 2. Cài Python 3.10+
-
-```bash
-python3 --version  # Kiểm tra
-```
-
-Nếu chưa có: [python.org/downloads](https://www.python.org/downloads/)
-
-### 3. Import skills
-
-Trong Claude Code → **Settings** → tab **Skills** → **+ Add skill** → chọn file `.skill` tương ứng.
-
-### 4. Thứ tự cài đặt khuyến nghị
-
-```
-/cro-setup  →  /cro-report  →  /seo-analyst
-```
-
-`/cro-report` reuse OAuth của `/cro-setup` → setup 1 lần cho cả 2.
-
----
-
-## Setup OAuth Client (bắt buộc, 1 lần duy nhất)
-
-Mỗi skill cần một **OAuth Client ID** từ Google Cloud Console để đăng nhập Google API.
-
-1. Vào [Google Cloud Console](https://console.cloud.google.com/) → tạo project
-2. **APIs & Services → Library** → bật các API cần thiết (xem README từng skill)
-3. **Credentials → Create OAuth Client ID** → Desktop app → Download JSON
-4. Copy `oauth_client.example.json` thành `oauth_client.json` và điền thông tin
-
-> Khi chạy lần đầu, từng skill sẽ hướng dẫn chi tiết từng bước — không cần đọc trước.
-
----
-
-## Bảo mật
-
-Các file sau **đã được `.gitignore`** — không bao giờ commit:
-
-| Pattern | Nội dung |
-|---------|---------|
-| `oauth_client.json` | OAuth client secret |
-| `credentials/*.json` | OAuth access/refresh tokens |
-| `accounts.json` | Profile data (GTM/GA4 IDs thật) |
-| `configs/<site>.json` | Config client thật |
-| `reports/*.html` | Reports có thể chứa data nhạy cảm |
-
-Chỉ commit các file `*.example.json` — là template trống, không có thông tin thật.
-
----
-
 ## Cấu trúc repo
 
 ```
 claude-skills/
-├── .gitignore
-├── README.md
-├── cro-setup/          # /cro-setup skill
-├── cro-report/         # /cro-report skill
-└── seo-analyst/        # /seo-analyst skill
+├── dist/                  # File .skill — tải về và import vào Claude Code
+│   ├── cro-setup.skill
+│   ├── cro-report.skill
+│   └── seo-analyst.skill
+├── cro-setup/             # Source code + hướng dẫn chi tiết
+├── cro-report/
+└── seo-analyst/
 ```
