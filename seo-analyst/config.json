@@ -1,0 +1,14 @@
+{
+  "credentials_path": "~/.claude/skills/seo-analyst/credentials.json",
+  "ga4_property_id": "YOUR_GA4_PROPERTY_ID",
+  "gsc_site_url": "https://yoursite.com/",
+  "url_groups_sheet_id": "YOUR_GOOGLE_SHEET_ID",
+  "url_groups_worksheet": "Sheet1",
+  "data_dir": "~/.claude/skills/seo-analyst/data",
+
+  "decay_threshold_percent": 30,
+  "ctr_opportunity_min_impressions": 100,
+  "cannibalization_min_clicks": 5,
+  "potential_min_impressions": 50,
+  "potential_max_position": 20
+}

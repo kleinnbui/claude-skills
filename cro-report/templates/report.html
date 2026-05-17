@@ -1,0 +1,1820 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>CRO Report — __CLIENT_NAME__</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --primary: #4B1EF7;
+  --primary-2: #5A23D5;
+  --primary-3: #3C3489;
+  --primary-light: #EEEAFE;
+  --primary-lighter: #F5F2FF;
+  --green: #00A878;
+  --green-light: #E0F7EE;
+  --orange: #BA7517;
+  --orange-light: #FFF4E5;
+  --red: #A32D2D;
+  --red-light: #FCEBEB;
+  --cyan: #0099C8;
+  --cyan-light: #E5F7FE;
+  --gray-1: #1F2937;
+  --gray-2: #4B5563;
+  --gray-3: #6B7280;
+  --gray-4: #9CA3AF;
+  --gray-5: #D1D5DB;
+  --bg: #F9FAFB;
+  --surface: #FFFFFF;
+  --border: #E5E7EB;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.04);
+  --shadow: 0 2px 8px rgba(0,0,0,.06);
+  --shadow-lg: 0 10px 30px rgba(0,0,0,.08);
+}
+html, body {
+  font-family: "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 14px; line-height: 1.5;
+  color: var(--gray-1); background: var(--bg);
+  min-height: 100vh;
+}
+
+/* ==== Topbar ==== */
+.topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 10px 24px;
+  display: flex; align-items: center; gap: 14px;
+  box-shadow: var(--shadow-sm);
+}
+.topbar .logo {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: var(--primary-light); color: var(--primary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.topbar .title { flex: 1; min-width: 0; }
+.topbar .title h1 {
+  font-size: 17px; font-weight: 700; color: var(--gray-1); line-height: 1.2;
+}
+.topbar .title .subtitle {
+  font-size: 12px; color: var(--gray-3); margin-top: 2px;
+}
+.topbar .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* ==== Buttons ==== */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--gray-1);
+  font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none;
+  font-family: inherit; transition: all .15s; white-space: nowrap;
+}
+.btn:hover { border-color: var(--primary); color: var(--primary); }
+.btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
+.btn-primary:hover { background: var(--primary-2); color: white; }
+.btn-sm { padding: 6px 10px; font-size: 12px; }
+.btn-ghost { border-color: transparent; background: transparent; }
+
+input.input, select.input {
+  padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;
+  font-family: inherit; font-size: 13px; background: white; color: var(--gray-1);
+}
+input.input:focus, select.input:focus { outline: none; border-color: var(--primary); }
+
+/* ==== Statusbar ==== */
+.statusbar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 10px 24px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 12px; color: var(--gray-3);
+  position: sticky; top: 60px; z-index: 40;
+}
+.statusbar .meta-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-radius: 999px; background: var(--bg);
+  font-weight: 500;
+}
+.statusbar .meta-chip b { color: var(--gray-1); font-weight: 600; }
+.statusbar .meta-chip.success { background: var(--green-light); color: var(--green); }
+.statusbar .meta-chip.warning { background: var(--orange-light); color: var(--orange); }
+.statusbar .filter-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 4px 4px 10px; border-radius: 999px;
+  background: var(--primary-light); color: var(--primary);
+  font-weight: 600; font-size: 12px;
+}
+.statusbar .filter-chip .remove {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--primary); color: white;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 10px; cursor: pointer; border: none;
+}
+.statusbar .filter-chip .remove:hover { background: var(--primary-2); }
+.statusbar .reset-all {
+  background: transparent; border: none; color: var(--primary);
+  font-weight: 600; font-size: 12px; cursor: pointer; padding: 4px 8px;
+}
+.statusbar .reset-all:hover { text-decoration: underline; }
+
+/* ==== Main ==== */
+.main {
+  max-width: 1500px; margin: 0 auto; padding: 24px;
+  display: flex; flex-direction: column; gap: 20px;
+}
+
+/* ==== Cards ==== */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 20px; box-shadow: var(--shadow-sm);
+}
+.card-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 14px; gap: 16px; flex-wrap: wrap;
+}
+.card-title {
+  font-size: 15px; font-weight: 700; color: var(--gray-1);
+  display: flex; align-items: center; gap: 10px;
+}
+.card-title .icon-tile {
+  width: 28px; height: 28px; border-radius: 6px;
+  background: var(--primary-light); color: var(--primary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+}
+.card-subtitle {
+  font-size: 12px; color: var(--gray-3); margin-top: 4px; font-weight: 400;
+}
+.card-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 11px; color: var(--gray-3); }
+
+/* ==== KPI grid ==== */
+.kpi-grid {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px;
+}
+.kpi {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px; transition: transform .15s;
+}
+.kpi:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.kpi .label {
+  font-size: 11px; font-weight: 600; color: var(--gray-3);
+  text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px;
+  display: flex; align-items: center; gap: 6px;
+}
+.kpi .value {
+  font-size: 28px; font-weight: 800; color: var(--gray-1); line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.kpi .hint { font-size: 11px; color: var(--gray-4); margin-top: 6px; }
+.kpi.primary { border-left: 3px solid var(--primary); }
+.kpi.success { border-left: 3px solid var(--green); }
+.kpi.warn { border-left: 3px solid var(--orange); }
+.kpi.info { border-left: 3px solid var(--cyan); }
+.kpi.danger { border-left: 3px solid var(--red); }
+.kpi.neutral { border-left: 3px solid var(--gray-4); }
+.kpi .delta {
+  font-size: 11px; font-weight: 700; margin-top: 5px;
+  display: inline-flex; align-items: center; gap: 3px;
+}
+.kpi .delta.up   { color: var(--green); }
+.kpi .delta.down { color: var(--red); }
+.kpi .delta.flat { color: var(--gray-4); }
+@media (max-width: 1100px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 640px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* ==== Tables ==== */
+.table-wrap { overflow-x: auto; }
+.table-scroll { max-height: 420px; overflow-y: auto; }
+table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+}
+th {
+  text-align: left; padding: 10px 12px;
+  background: var(--bg); color: var(--gray-2);
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em;
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 1;
+}
+th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover { color: var(--primary); }
+th.sortable.sort-asc::after { content: ' \f062'; font-family: 'Font Awesome 6 Free'; font-weight: 900; color: var(--primary); font-size: 10px; }
+th.sortable.sort-desc::after { content: ' \f063'; font-family: 'Font Awesome 6 Free'; font-weight: 900; color: var(--primary); font-size: 10px; }
+td {
+  padding: 9px 12px; border-bottom: 1px solid var(--border);
+  color: var(--gray-1);
+}
+tr:hover td { background: var(--bg); }
+tr.row-filterable { cursor: pointer; }
+tr.row-filterable:hover td { background: var(--primary-lighter); }
+tr.row-active td { background: var(--primary-light) !important; }
+
+td .bar-cell { display: flex; align-items: center; gap: 8px; }
+td .bar-cell .bar {
+  height: 6px; background: var(--primary-light); border-radius: 3px;
+  flex: 1; overflow: hidden; min-width: 60px;
+}
+td .bar-cell .bar > div {
+  height: 100%; background: linear-gradient(90deg, var(--primary), var(--primary-2));
+  border-radius: 3px;
+}
+
+/* ==== Pills ==== */
+.pill {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 600;
+}
+.pill-good { background: var(--green-light); color: var(--green); }
+.pill-warn { background: var(--orange-light); color: var(--orange); }
+.pill-bad { background: var(--red-light); color: var(--red); }
+.pill-info { background: var(--cyan-light); color: var(--cyan); }
+.pill-neutral { background: var(--bg); color: var(--gray-3); }
+.pill-primary { background: var(--primary-light); color: var(--primary); }
+
+.chip-clickable {
+  cursor: pointer; transition: filter .15s;
+}
+.chip-clickable:hover { filter: brightness(0.93); }
+
+/* ==== Multi-select dropdown ==== */
+.dropdown { position: relative; display: inline-block; }
+.dropdown-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--gray-1);
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  font-family: inherit; white-space: nowrap;
+}
+.dropdown-btn:hover { border-color: var(--primary); color: var(--primary); }
+.dropdown-btn .count {
+  background: var(--primary); color: white; font-size: 10px;
+  padding: 1px 6px; border-radius: 999px; font-weight: 700;
+}
+.dropdown-menu {
+  display: none; position: absolute; top: calc(100% + 4px); left: 0;
+  background: white; border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  min-width: 220px; max-height: 280px; overflow-y: auto;
+  padding: 4px; z-index: 30;
+}
+.dropdown.open .dropdown-menu { display: block; }
+.dropdown-menu label {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border-radius: 6px;
+  font-size: 13px; cursor: pointer;
+}
+.dropdown-menu label:hover { background: var(--primary-lighter); }
+.dropdown-menu input[type="checkbox"] { accent-color: var(--primary); }
+
+/* ==== Empty state ==== */
+.empty {
+  padding: 28px 16px; text-align: center; color: var(--gray-3);
+  background: var(--bg); border-radius: 8px; border: 1px dashed var(--gray-5);
+  font-size: 13px;
+}
+.empty .ic { font-size: 28px; margin-bottom: 6px; color: var(--gray-4); }
+
+/* ==== Grids ==== */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+.grid-1-2 { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
+.grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+@media (max-width: 900px) {
+  .grid-2, .grid-3, .grid-1-2, .grid-2-1 { grid-template-columns: 1fr; }
+}
+
+/* ==== Warnings banner ==== */
+.warn-banner {
+  background: var(--orange-light); border: 1px solid var(--orange);
+  border-radius: 10px; padding: 12px 14px;
+  font-size: 13px; color: var(--orange);
+}
+.warn-banner b { color: var(--orange); font-weight: 700; }
+.warn-banner ul { list-style: none; padding-left: 0; margin-top: 6px; }
+.warn-banner li { padding-left: 16px; position: relative; line-height: 1.6; }
+.warn-banner li::before { content: '⚠'; position: absolute; left: 0; }
+
+/* ==== Filter bar (header) ==== */
+.filter-row {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.filter-row .filter-label {
+  font-size: 11px; font-weight: 700; color: var(--gray-3);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.flatpickr-input {
+  padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px;
+  background: white; font-family: inherit; font-size: 13px;
+  min-width: 220px; cursor: pointer; color: var(--gray-1);
+}
+.flatpickr-input:hover { border-color: var(--primary); }
+
+/* ==== Footer ==== */
+.footer {
+  text-align: center; font-size: 12px; color: var(--gray-4);
+  padding: 24px 12px;
+}
+.footer code {
+  background: var(--bg); padding: 2px 8px; border-radius: 4px;
+  color: var(--gray-2); font-size: 11px;
+}
+
+/* ==== Dropdown right-align (for items near right edge) ==== */
+.topbar .controls .dropdown .dropdown-menu {
+  right: 0; left: auto;
+}
+
+/* ==== CSS Funnel (replaces ECharts funnel) ==== */
+.funnel-viz {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 0; height: 100%; padding: 12px 20px;
+}
+.funnel-step-wrap { width: 100%; display: flex; justify-content: center; }
+.funnel-bar {
+  height: 62px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 18px; transition: width .45s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  min-width: 120px;
+  background: linear-gradient(90deg, var(--cf), var(--ct));
+}
+.funnel-bar .f-label {
+  font-size: 12px; font-weight: 600; color: rgba(255,255,255,.85);
+}
+.funnel-bar .f-val {
+  font-size: 22px; font-weight: 800; color: white;
+  font-variant-numeric: tabular-nums; letter-spacing: -.5px;
+}
+.funnel-connector {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 0; min-height: 44px; justify-content: center;
+}
+.funnel-connector .arr { color: var(--gray-4); font-size: 16px; }
+.funnel-connector .rates { display: flex; gap: 10px; font-size: 11px; font-weight: 700; }
+.funnel-connector .passed { color: var(--green); }
+.funnel-connector .dropped { color: var(--red); }
+
+@media print {
+  .topbar, .statusbar { position: static; }
+  .card { break-inside: avoid; box-shadow: none; }
+  .btn, .dropdown { display: none; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="logo"><i class="fa-solid fa-bullseye"></i></div>
+  <div class="title">
+    <h1>CRO Report <span style="color: var(--gray-3); font-weight: 500;">— <span id="hdr-client">__CLIENT_NAME__</span></span></h1>
+    <div class="subtitle">
+      Fetched <span id="hdr-fetched">__GENERATED_AT__</span>
+      · GA4 property <span id="hdr-property" style="font-family: ui-monospace, monospace;">__PROPERTY_ID__</span>
+    </div>
+  </div>
+  <div class="controls">
+    <span class="filter-label">📅</span>
+    <input id="filter-date" class="flatpickr-input" readonly placeholder="Date range">
+    <button id="filter-date-reset" class="btn btn-sm btn-ghost" title="Reset to full range"><i class="fa-solid fa-rotate-left"></i></button>
+
+    <div class="dropdown" id="dd-lead">
+      <button class="dropdown-btn"><i class="fa-solid fa-tag"></i> Lead type <span class="count" id="lead-count" style="display:none">0</span> <i class="fa-solid fa-chevron-down" style="font-size:10px;"></i></button>
+      <div class="dropdown-menu" id="lead-menu"></div>
+    </div>
+
+    <div class="dropdown" id="dd-trigger">
+      <button class="dropdown-btn"><i class="fa-solid fa-bolt"></i> Trigger <span class="count" id="trigger-count" style="display:none">0</span> <i class="fa-solid fa-chevron-down" style="font-size:10px;"></i></button>
+      <div class="dropdown-menu" id="trigger-menu"></div>
+    </div>
+  </div>
+</header>
+
+<div class="statusbar" id="statusbar">
+  <span class="meta-chip"><i class="fa-solid fa-calendar"></i> <b id="sb-daterange">—</b></span>
+  <span class="meta-chip success" id="sb-count"><i class="fa-solid fa-circle-check"></i> <b id="sb-count-val">0</b> conversions</span>
+  <span id="sb-filters-active" style="display: contents;"></span>
+  <button class="reset-all" id="btn-reset-all" style="display:none;"><i class="fa-solid fa-xmark"></i> Reset all filters</button>
+</div>
+
+<main class="main">
+
+  <div id="warnings-banner" class="warn-banner" style="display: none;"></div>
+
+  <div id="empty-state" class="empty" style="display: none;">
+    <div class="ic"><i class="fa-solid fa-inbox"></i></div>
+    <div style="font-weight: 600; color: var(--gray-2); margin-bottom: 6px;">Chưa có data CRO trong khoảng này</div>
+    <div>GTM container chưa publish · engine snippet chưa paste · chưa có submission thực · custom dims chưa register</div>
+  </div>
+
+  <!-- KPI grid -->
+  <section class="kpi-grid">
+    <div class="kpi info">
+      <div class="label"><i class="fa-solid fa-users"></i> Sessions</div>
+      <div class="value" id="kpi-sessions">0</div>
+      <div class="hint">total site sessions</div>
+      <div class="delta flat" id="kpi-sessions-delta"></div>
+    </div>
+    <div class="kpi neutral">
+      <div class="label"><i class="fa-solid fa-user"></i> Users</div>
+      <div class="value" id="kpi-users">0</div>
+      <div class="hint">unique visitors</div>
+      <div class="delta flat" id="kpi-users-delta"></div>
+    </div>
+    <div class="kpi success">
+      <div class="label"><i class="fa-solid fa-circle-check"></i> Conversions</div>
+      <div class="value" id="kpi-success">0</div>
+      <div class="hint">conversion_success events</div>
+      <div class="delta flat" id="kpi-success-delta"></div>
+    </div>
+    <div class="kpi primary">
+      <div class="label"><i class="fa-solid fa-percent"></i> Site CR</div>
+      <div class="value" id="kpi-site-cr">0%</div>
+      <div class="hint">conversions / sessions</div>
+      <div class="delta flat" id="kpi-site-cr-delta"></div>
+    </div>
+    <div class="kpi danger">
+      <div class="label"><i class="fa-solid fa-circle-xmark"></i> Failures</div>
+      <div class="value" id="kpi-fail">0</div>
+      <div class="hint">conversion_attempt_failed</div>
+    </div>
+    <div class="kpi warn">
+      <div class="label"><i class="fa-solid fa-clock"></i> Avg Time</div>
+      <div class="value" id="kpi-time">—</div>
+      <div class="hint" id="kpi-time-hint">session time to convert</div>
+    </div>
+  </section>
+
+  <!-- Timeline + Funnel -->
+  <section class="grid-2-1">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title"><span class="icon-tile"><i class="fa-solid fa-chart-line"></i></span> Hoạt động theo ngày</div>
+          <div class="card-subtitle">Conversions · Failures · Interactions theo timeline</div>
+        </div>
+      </div>
+      <div id="chart-timeline" style="height: 320px;"></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title"><span class="icon-tile"><i class="fa-solid fa-bullseye"></i></span> Funnel</div>
+          <div class="card-subtitle">Sessions → Attempts → Conversions (Site CR = conv/sessions)</div>
+        </div>
+      </div>
+      <div id="chart-funnel" style="height: 320px;"></div>
+    </div>
+  </section>
+
+  <!-- Per-form (lead type) -->
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title"><span class="icon-tile"><i class="fa-solid fa-tags"></i></span> Performance theo lead type</div>
+        <div class="card-subtitle">Click vào row để cross-filter toàn dashboard</div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="table-per-form">
+        <thead>
+          <tr>
+            <th class="sortable" data-col="conversion_id">Lead</th>
+            <th class="sortable" data-col="trigger_type">Trigger</th>
+            <th class="sortable" data-col="detection">Detection</th>
+            <th class="sortable num" data-col="attempts">Attempts</th>
+            <th class="sortable num" data-col="success">Success</th>
+            <th class="sortable num" data-col="fail">Fail</th>
+            <th class="sortable num sort-desc" data-col="conversion_rate_pct">Conv Rate</th>
+            <th class="sortable num" data-col="avg_time_ms">Avg Time</th>
+            <th class="sortable num" data-col="interactions">Interactions</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-per-form"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Failures + Interactions -->
+  <section class="grid-2">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title"><span class="icon-tile" style="background: var(--red-light); color: var(--red);"><i class="fa-solid fa-circle-exclamation"></i></span> Failure breakdown</div>
+          <div class="card-subtitle">conversion_attempt_failed theo fail_reason</div>
+        </div>
+      </div>
+      <div id="chart-failures" style="height: 240px;"></div>
+      <div class="table-wrap" style="margin-top: 10px;">
+        <table>
+          <thead>
+            <tr><th>Reason</th><th>Lead</th><th class="num">Count</th><th class="num">% of fails</th></tr>
+          </thead>
+          <tbody id="tbody-failures"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title"><span class="icon-tile" style="background: var(--cyan-light); color: var(--cyan);"><i class="fa-solid fa-hand-pointer"></i></span> Top form interactions</div>
+          <div class="card-subtitle">focus / input event theo field</div>
+        </div>
+      </div>
+      <div id="chart-interactions" style="height: 240px;"></div>
+      <div class="table-wrap table-scroll" style="margin-top: 10px; max-height: 240px;">
+        <table>
+          <thead>
+            <tr><th>Interaction</th><th>Lead</th><th class="num">Count</th></tr>
+          </thead>
+          <tbody id="tbody-interactions"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Journey patterns -->
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title"><span class="icon-tile" style="background: var(--green-light); color: var(--green);"><i class="fa-solid fa-route"></i></span> Hành trình chuyển đổi</div>
+        <div class="card-subtitle">Landing → middle path → submission · click row để filter theo lead type</div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="table-journey">
+        <thead>
+          <tr>
+            <th>Lead</th>
+            <th>Landing</th>
+            <th>Middle path</th>
+            <th>→ Submission</th>
+            <th>Thank You</th>
+            <th class="num">Pages</th>
+            <th class="num">Conv</th>
+            <th class="num">% of total</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-journey"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Landing Page CR -->
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title"><span class="icon-tile" style="background: var(--cyan-light); color: var(--cyan);"><i class="fa-solid fa-door-open"></i></span> CR% theo trang landing</div>
+        <div class="card-subtitle">Sessions vào trang × conversions từ trang đó · sắp xếp theo CR%</div>
+      </div>
+    </div>
+    <div class="table-wrap table-scroll" style="max-height: 400px;">
+      <table id="table-landing-pages">
+        <thead>
+          <tr>
+            <th>Landing Page</th>
+            <th class="num">Sessions</th>
+            <th class="num">Conv</th>
+            <th class="num">CR%</th>
+            <th class="num">% of total conv</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-landing-pages"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Device + Geo -->
+  <section class="grid-2">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title"><span class="icon-tile"><i class="fa-solid fa-mobile-screen"></i></span> Thiết bị</div>
+          <div class="card-subtitle">Click slice donut hoặc row để filter</div>
+        </div>
+      </div>
+      <div id="chart-device" style="height: 200px;"></div>
+      <div class="table-wrap table-scroll" style="margin-top: 10px; max-height: 220px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Device</th><th>OS</th><th>Screen</th>
+              <th class="num">Sessions</th><th class="num">CR%</th>
+              <th class="num">Conv</th><th class="num">%</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-device"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title"><span class="icon-tile" style="background: var(--cyan-light); color: var(--cyan);"><i class="fa-solid fa-location-dot"></i></span> Khu vực địa lý (Conversions)</div>
+          <div class="card-subtitle">Region · tỉnh/thành phố</div>
+        </div>
+      </div>
+      <div class="table-wrap table-scroll" style="max-height: 460px;">
+        <table id="table-geo">
+          <thead>
+            <tr>
+              <th>Region</th><th>City</th>
+              <th class="num">Conv</th><th class="num">% of total</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-geo"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Channel group performance -->
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title"><span class="icon-tile" style="background: var(--orange-light); color: var(--orange);"><i class="fa-solid fa-layer-group"></i></span> Hiệu quả theo kênh</div>
+        <div class="card-subtitle">Nhóm kênh mặc định GA4 · CR% = conv / sessions kênh đó · click để filter</div>
+      </div>
+    </div>
+    <div class="grid-2" style="gap: 16px;">
+      <div id="chart-channel" style="height: 260px;"></div>
+      <div class="table-wrap">
+        <table id="table-channel">
+          <thead>
+            <tr>
+              <th>Kênh</th>
+              <th class="num">Sessions</th>
+              <th class="num">Conv</th>
+              <th class="num">CR%</th>
+              <th class="num">Engagement%</th>
+              <th class="num">Avg Duration</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-channel"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Source / medium / campaign -->
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title"><span class="icon-tile" style="background: var(--orange-light); color: var(--orange);"><i class="fa-solid fa-bullhorn"></i></span> Nguồn truy cập chi tiết</div>
+        <div class="card-subtitle">Channel · Source · Medium · Campaign — click để filter</div>
+      </div>
+    </div>
+    <div class="table-wrap table-scroll" style="max-height: 400px;">
+      <table id="table-source">
+        <thead>
+          <tr>
+            <th>Channel</th><th>Source</th><th>Medium</th><th>Campaign</th>
+            <th class="num">Conv</th><th class="num">% of total</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-source"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Time heatmap + User segment -->
+  <section class="grid-2-1">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title"><span class="icon-tile"><i class="fa-solid fa-table-cells"></i></span> Heatmap thời gian</div>
+          <div class="card-subtitle">Thứ × giờ · ô đậm = conv nhiều</div>
+        </div>
+      </div>
+      <div id="chart-heatmap" style="height: 300px;"></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title"><span class="icon-tile" style="background: var(--green-light); color: var(--green);"><i class="fa-solid fa-user-plus"></i></span> User type</div>
+          <div class="card-subtitle">New vs Returning</div>
+        </div>
+      </div>
+      <div id="chart-usertype" style="height: 160px;"></div>
+      <div class="table-wrap" style="margin-top: 8px;">
+        <table>
+          <thead>
+            <tr><th>User Type</th><th class="num">Sessions</th><th class="num">Conv</th><th class="num">CR%</th></tr>
+          </thead>
+          <tbody id="tbody-usertype-cr"></tbody>
+        </table>
+      </div>
+      <div class="table-wrap" style="margin-top: 8px;">
+        <table>
+          <thead>
+            <tr><th>Browser</th><th class="num">Conv</th></tr>
+          </thead>
+          <tbody id="tbody-browser"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    Generated by <code>/cro-report</code> · CRO Engine v2.6 · GA4 property <span id="ftr-property" style="font-family: ui-monospace, monospace;">__PROPERTY_ID__</span>
+  </div>
+</main>
+
+<script id="cro-data" type="application/json">__CRO_DATA__</script>
+
+<script>
+"use strict";
+
+const RAW = JSON.parse(document.getElementById("cro-data").textContent);
+const SNAPSHOT_RANGE = { start: RAW.meta.date_range.start, end: RAW.meta.date_range.end };
+
+// Cross-filter state. Each set is a multi-select; empty = no filter on that dim.
+const STATE = {
+  dateStart: SNAPSHOT_RANGE.start,
+  dateEnd: SNAPSHOT_RANGE.end,
+  lead: new Set(),       // conversion_id
+  trigger: new Set(),    // trigger_type
+  device: new Set(),
+  os: new Set(),
+  screen: new Set(),
+  region: new Set(),
+  city: new Set(),
+  channelGroup: new Set(), // sessionDefaultChannelGroup
+  source: new Set(),
+  medium: new Set(),
+  campaign: new Set(),
+  day: new Set(),        // dayOfWeekName
+  hour: new Set(),       // 0-23 as int
+  userType: new Set(),   // new / returning
+  browser: new Set(),
+  failReason: new Set(),
+};
+
+// Dimension label + icon mapping for chips
+const DIM_META = {
+  lead:      { label: "Lead", icon: "tag" },
+  trigger:   { label: "Trigger", icon: "bolt" },
+  device:    { label: "Device", icon: "mobile-screen" },
+  os:        { label: "OS", icon: "microchip" },
+  screen:    { label: "Screen", icon: "display" },
+  region:    { label: "Region", icon: "location-dot" },
+  city:      { label: "City", icon: "city" },
+  channelGroup: { label: "Channel", icon: "layer-group" },
+  source:    { label: "Source", icon: "bullhorn" },
+  medium:    { label: "Medium", icon: "share-nodes" },
+  campaign:  { label: "Campaign", icon: "rocket" },
+  day:       { label: "Day", icon: "calendar-day" },
+  hour:      { label: "Hour", icon: "clock" },
+  userType:  { label: "User", icon: "user" },
+  browser:   { label: "Browser", icon: "window-maximize" },
+  failReason:{ label: "Fail", icon: "circle-exclamation" },
+};
+
+// Inject meta
+document.getElementById("hdr-property").textContent = RAW.meta.property_id;
+document.getElementById("ftr-property").textContent = RAW.meta.property_id;
+
+// Warnings
+if (RAW.meta.warnings && RAW.meta.warnings.length) {
+  const b = document.getElementById("warnings-banner");
+  b.style.display = "block";
+  b.innerHTML = "<b>⚠ Warnings từ GA4 API:</b><ul>"
+    + RAW.meta.warnings.map(w => `<li>${escapeHtml(w)}</li>`).join("") + "</ul>";
+}
+
+const totalEvents = (RAW.per_form_daily || []).reduce(
+  (s, r) => s + (r.success||0) + (r.fail||0) + (r.interactions||0), 0);
+if (totalEvents === 0) document.getElementById("empty-state").style.display = "block";
+
+// ── ECharts ───────────────────────────────────────────────────────────────
+let timelineChart, failuresChart, interactionsChart,
+    deviceChart, heatmapChart, usertypeChart, channelChart;
+
+function initCharts() {
+  timelineChart   = echarts.init(document.getElementById("chart-timeline"));
+  failuresChart   = echarts.init(document.getElementById("chart-failures"));
+  interactionsChart = echarts.init(document.getElementById("chart-interactions"));
+  deviceChart   = echarts.init(document.getElementById("chart-device"));
+  heatmapChart  = echarts.init(document.getElementById("chart-heatmap"));
+  usertypeChart = echarts.init(document.getElementById("chart-usertype"));
+  channelChart  = echarts.init(document.getElementById("chart-channel"));
+  window.addEventListener("resize", () => {
+    [timelineChart, failuresChart, interactionsChart,
+     deviceChart, heatmapChart, usertypeChart, channelChart].forEach(c => c && c.resize());
+  });
+}
+
+// ── Filter primitives ─────────────────────────────────────────────────────
+function inDate(d) { return d >= STATE.dateStart && d <= STATE.dateEnd; }
+
+// matchFilters checks a row against active filters. `fields` maps STATE dim name → row field name.
+function matchFilters(row, fields) {
+  if (!inDate(row.date)) return false;
+  for (const dim in fields) {
+    const set = STATE[dim];
+    if (!set || !set.size) continue;
+    const v = row[fields[dim]];
+    // Hour comparison is int; others are strings
+    if (dim === "hour") {
+      if (!set.has(parseInt(v))) return false;
+    } else {
+      if (!set.has(v)) return false;
+    }
+  }
+  return true;
+}
+
+function toggleFilter(dim, value) {
+  const set = STATE[dim];
+  if (set.has(value)) set.delete(value);
+  else set.add(value);
+  recomputeAll(); renderAll(); updateHash();
+}
+
+// ── Aggregators ───────────────────────────────────────────────────────────
+function aggregatePerForm() {
+  const fields = { lead: "conversion_id", trigger: "trigger_type" };
+  const byForm = new Map();
+  for (const r of RAW.per_form_daily || []) {
+    if (!matchFilters(r, fields)) continue;
+    let f = byForm.get(r.conversion_id);
+    if (!f) {
+      f = { conversion_id: r.conversion_id, trigger_type: r.trigger_type || "",
+            detection: r.detection || "",
+            success:0, fail:0, interactions:0, elapsed_sum:0, session_ms_sum:0, pages_sum:0 };
+      byForm.set(r.conversion_id, f);
+    }
+    if (r.trigger_type) f.trigger_type = r.trigger_type;
+    if (r.detection)    f.detection    = r.detection;
+    f.success += r.success||0; f.fail += r.fail||0; f.interactions += r.interactions||0;
+    f.elapsed_sum     += r.elapsed_sum||0;
+    f.session_ms_sum  += r.session_ms_sum||0;
+    f.pages_sum       += r.pages_sum||0;
+  }
+  const out = [];
+  for (const f of byForm.values()) {
+    const attempts = f.success + f.fail;
+    // avg_time_ms = primary session duration to convert (cro_session_ms)
+    // fall back to elapsed if session_ms not available
+    const avg_time_ms = f.success
+      ? Math.round((f.session_ms_sum || f.elapsed_sum) / f.success) : 0;
+    out.push({
+      conversion_id: f.conversion_id, trigger_type: f.trigger_type,
+      detection: f.detection,
+      success: f.success, fail: f.fail, interactions: f.interactions, attempts,
+      conversion_rate_pct: attempts ? Math.round(f.success/attempts*1000)/10 : 0,
+      avg_time_ms,
+      avg_pages: f.success ? Math.round(f.pages_sum/f.success*10)/10 : 0,
+    });
+  }
+  return out.sort((a, b) => b.success - a.success);
+}
+
+function aggregateFailures() {
+  const fields = { lead: "conversion_id", failReason: "reason" };
+  const byKey = new Map();
+  for (const r of RAW.failures_daily || []) {
+    if (!matchFilters(r, fields)) continue;
+    const key = r.conversion_id + "||" + r.reason;
+    const cur = byKey.get(key) || { conversion_id: r.conversion_id, reason: r.reason, count: 0 };
+    cur.count += r.count||0; byKey.set(key, cur);
+  }
+  return [...byKey.values()].sort((a, b) => b.count - a.count);
+}
+
+function aggregateInteractions() {
+  const fields = { lead: "conversion_id" };
+  const byKey = new Map();
+  for (const r of RAW.interactions_daily || []) {
+    if (!matchFilters(r, fields)) continue;
+    const key = r.conversion_id + "||" + r.interaction;
+    const cur = byKey.get(key) || { conversion_id: r.conversion_id, interaction: r.interaction, count: 0 };
+    cur.count += r.count||0; byKey.set(key, cur);
+  }
+  return [...byKey.values()].sort((a, b) => b.count - a.count);
+}
+
+function aggregateJourney() {
+  const fields = { lead: "conversion_id" };
+  const byKey = new Map();
+  for (const r of RAW.journey_daily || []) {
+    if (!matchFilters(r, fields)) continue;
+    const key = [r.conversion_id, r.landing, r.submission, r.pages_visited].join("||");
+    const cur = byKey.get(key) || {
+      conversion_id: r.conversion_id, landing: r.landing,
+      submission: r.submission, thank_you_path: r.thank_you_path || "",
+      pages_visited: r.pages_visited,
+      journey_length: r.journey_length, count: 0,
+    };
+    cur.count += r.count||0;
+    if (r.journey_length) cur.journey_length = r.journey_length;
+    if (r.thank_you_path) cur.thank_you_path = r.thank_you_path;
+    byKey.set(key, cur);
+  }
+  return [...byKey.values()].sort((a, b) => b.count - a.count);
+}
+
+function aggregateDevice() {
+  const fields = { lead: "conversion_id", device: "device", os: "os", screen: "screen" };
+  const byKey = new Map();
+  for (const r of RAW.device_daily || []) {
+    if (!matchFilters(r, fields)) continue;
+    const key = [r.device, r.os, r.screen].join("||");
+    const cur = byKey.get(key) || { device: r.device, os: r.os, screen: r.screen, count: 0 };
+    cur.count += r.count||0; byKey.set(key, cur);
+  }
+  return [...byKey.values()].sort((a, b) => b.count - a.count);
+}
+
+function aggregateGeo() {
+  const fields = { lead: "conversion_id", region: "region", city: "city" };
+  const byKey = new Map();
+  for (const r of RAW.geo_daily || []) {
+    if (!matchFilters(r, fields)) continue;
+    const key = r.region + "||" + r.city;
+    const cur = byKey.get(key) || { region: r.region, city: r.city, count: 0 };
+    cur.count += r.count||0; byKey.set(key, cur);
+  }
+  return [...byKey.values()].sort((a, b) => b.count - a.count);
+}
+
+function aggregateChannel() {
+  const convFields = { lead: "conversion_id", channelGroup: "channel_group" };
+  const convByChannel = new Map();
+  for (const r of RAW.source_daily || []) {
+    if (!matchFilters(r, convFields)) continue;
+    const ch = r.channel_group || "(other)";
+    convByChannel.set(ch, (convByChannel.get(ch) || 0) + (r.count || 0));
+  }
+  // Sessions + quality metrics per channel (date-filter only)
+  const sessByChannel = new Map();
+  for (const r of RAW.channel_sessions_daily || []) {
+    if (!inDate(r.date)) continue;
+    const ch = r.channel_group || "(other)";
+    const cur = sessByChannel.get(ch) || { sessions: 0, users: 0, eng_sum: 0, dur_sum: 0 };
+    cur.sessions  += r.sessions || 0;
+    cur.users     += r.users || 0;
+    // weighted accumulate: engagement_rate (%) × sessions, avg_session_sec × sessions
+    cur.eng_sum   += (r.engagement_rate || 0) * (r.sessions || 0);
+    cur.dur_sum   += (r.avg_session_sec || 0) * (r.sessions || 0);
+    sessByChannel.set(ch, cur);
+  }
+  const channels = new Set([...convByChannel.keys(), ...sessByChannel.keys()]);
+  const out = [];
+  for (const ch of channels) {
+    const conv = convByChannel.get(ch) || 0;
+    const s    = sessByChannel.get(ch) || { sessions: 0, eng_sum: 0, dur_sum: 0 };
+    const sess = s.sessions;
+    const cr   = sess ? (conv / sess * 100) : 0;
+    const avg_eng = sess ? s.eng_sum / sess : 0;
+    const avg_dur = sess ? s.dur_sum / sess : 0;
+    out.push({ channel_group: ch, sessions: sess, conv, cr, avg_eng, avg_dur });
+  }
+  return out.sort((a, b) => b.conv - a.conv);
+}
+
+function aggregateSource() {
+  const fields = { lead: "conversion_id", channelGroup: "channel_group", source: "source", medium: "medium", campaign: "campaign" };
+  const byKey = new Map();
+  for (const r of RAW.source_daily || []) {
+    if (!matchFilters(r, fields)) continue;
+    const key = [r.channel_group, r.source, r.medium, r.campaign].join("||");
+    const cur = byKey.get(key) || { channel_group: r.channel_group||"(other)", source: r.source, medium: r.medium, campaign: r.campaign, count: 0 };
+    cur.count += r.count||0; byKey.set(key, cur);
+  }
+  return [...byKey.values()].sort((a, b) => b.count - a.count);
+}
+
+function aggregateTime() {
+  const fields = { lead: "conversion_id", day: "day_of_week", hour: "hour" };
+  const byKey = new Map();
+  for (const r of RAW.time_daily || []) {
+    if (!matchFilters(r, fields)) continue;
+    const key = r.day_of_week + "||" + r.hour;
+    const cur = byKey.get(key) || { day_of_week: r.day_of_week, hour: r.hour, count: 0 };
+    cur.count += r.count||0; byKey.set(key, cur);
+  }
+  return [...byKey.values()];
+}
+
+function aggregateSegment() {
+  const fields = { lead: "conversion_id", userType: "user_type", browser: "browser" };
+  const userTypes = new Map(), browsers = new Map();
+  for (const r of RAW.segment_daily || []) {
+    if (!matchFilters(r, fields)) continue;
+    userTypes.set(r.user_type, (userTypes.get(r.user_type)||0) + r.count);
+    browsers.set(r.browser, (browsers.get(r.browser)||0) + r.count);
+  }
+  return {
+    user_types: [...userTypes.entries()].map(([k, v]) => ({ name: k, value: v })).sort((a, b) => b.value - a.value),
+    browsers:   [...browsers.entries()].map(([k, v]) => ({ name: k, value: v })).sort((a, b) => b.value - a.value),
+  };
+}
+
+function filteredTimeline() {
+  // Timeline doesn't have lead/device/etc dims (just date + event)
+  return (RAW.timeline || []).filter(t => inDate(t.date));
+}
+
+function aggregateSessions() {
+  let sessions = 0, users = 0;
+  for (const r of RAW.sessions_daily || []) {
+    if (!inDate(r.date)) continue;
+    sessions += r.sessions || 0;
+    users += r.users || 0;
+  }
+  return { sessions, users };
+}
+
+function aggregateLandingPages() {
+  // Sessions per landing page (date filter only — site-wide)
+  const sessByLP = new Map();
+  for (const r of RAW.landing_sessions_daily || []) {
+    if (!inDate(r.date)) continue;
+    const lp = r.landing_page || "/";
+    sessByLP.set(lp, (sessByLP.get(lp) || 0) + (r.sessions || 0));
+  }
+  // Conversions per landing page (from journey_daily, filtered by lead + date)
+  const convFields = { lead: "conversion_id" };
+  const convByLP = new Map();
+  for (const r of RAW.journey_daily || []) {
+    if (!matchFilters(r, convFields)) continue;
+    const lp = r.landing || "/";
+    convByLP.set(lp, (convByLP.get(lp) || 0) + (r.count || 0));
+  }
+  const lps = new Set([...sessByLP.keys(), ...convByLP.keys()]);
+  const out = [];
+  for (const lp of lps) {
+    const sessions = sessByLP.get(lp) || 0;
+    const conv     = convByLP.get(lp) || 0;
+    if (!sessions && !conv) continue;
+    const cr = sessions ? (conv / sessions * 100) : 0;
+    out.push({ landing_page: lp, sessions, conv, cr });
+  }
+  return out.sort((a, b) => b.cr - a.cr || b.conv - a.conv);
+}
+
+function aggregateDeviceSessions() {
+  // Device sessions — date filter only (site-wide)
+  const byDevice = new Map();
+  for (const r of RAW.device_sessions_daily || []) {
+    if (!inDate(r.date)) continue;
+    const dev = r.device || "(unknown)";
+    byDevice.set(dev, (byDevice.get(dev) || 0) + (r.sessions || 0));
+  }
+  return byDevice;
+}
+
+function aggregateSegmentSessions() {
+  // New vs returning sessions — date filter only
+  const byType = new Map();
+  for (const r of RAW.segment_sessions_daily || []) {
+    if (!inDate(r.date)) continue;
+    const t = r.user_type || "(unknown)";
+    byType.set(t, (byType.get(t) || 0) + (r.sessions || 0));
+  }
+  return byType;
+}
+
+// Cached
+let CUR_PER_FORM=[], CUR_FAILURES=[], CUR_INTERACTIONS=[], CUR_JOURNEY=[],
+    CUR_DEVICE=[], CUR_GEO=[], CUR_SOURCE=[], CUR_TIME=[], CUR_CHANNEL=[],
+    CUR_SEGMENT={user_types:[],browsers:[]}, CUR_TIMELINE=[],
+    CUR_SESSIONS={sessions:0, users:0},
+    CUR_LANDING_PAGES=[],
+    CUR_DEVICE_SESSIONS=new Map(), CUR_SEGMENT_SESSIONS=new Map();
+
+function recomputeAll() {
+  CUR_PER_FORM = aggregatePerForm();
+  CUR_FAILURES = aggregateFailures();
+  CUR_INTERACTIONS = aggregateInteractions();
+  CUR_JOURNEY = aggregateJourney();
+  CUR_DEVICE = aggregateDevice();
+  CUR_GEO = aggregateGeo();
+  CUR_CHANNEL = aggregateChannel();
+  CUR_SOURCE = aggregateSource();
+  CUR_TIME = aggregateTime();
+  CUR_SEGMENT = aggregateSegment();
+  CUR_TIMELINE = filteredTimeline();
+  CUR_SESSIONS = aggregateSessions();
+  CUR_LANDING_PAGES = aggregateLandingPages();
+  CUR_DEVICE_SESSIONS = aggregateDeviceSessions();
+  CUR_SEGMENT_SESSIONS = aggregateSegmentSessions();
+}
+
+// ── Render ────────────────────────────────────────────────────────────────
+function _setDelta(id, cur, prev) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (!prev) { el.innerHTML = ""; return; }
+  const pct = (cur - prev) / prev * 100;
+  if (Math.abs(pct) < 0.05) {
+    el.className = "delta flat";
+    el.innerHTML = `<i class="fa-solid fa-minus"></i> vs prev`;
+    return;
+  }
+  el.className = "delta " + (pct > 0 ? "up" : "down");
+  const arrow = pct > 0 ? "fa-arrow-trend-up" : "fa-arrow-trend-down";
+  el.innerHTML = `<i class="fa-solid ${arrow}"></i> ${pct > 0 ? "+" : ""}${pct.toFixed(1)}% vs prev`;
+}
+
+function renderKpi() {
+  const pf = CUR_PER_FORM;
+  const totSuc  = pf.reduce((s, f) => s + f.success, 0);
+  const totFail = pf.reduce((s, f) => s + f.fail, 0);
+  const wTime   = pf.reduce((s, f) => s + (f.avg_time_ms||0) * f.success, 0);
+  const { sessions, users } = CUR_SESSIONS;
+  const siteCR  = sessions ? (totSuc / sessions * 100) : 0;
+
+  document.getElementById("kpi-sessions").textContent = sessions.toLocaleString();
+  document.getElementById("kpi-users").textContent    = users.toLocaleString();
+  document.getElementById("kpi-success").textContent  = totSuc.toLocaleString();
+  document.getElementById("kpi-site-cr").textContent  = siteCR.toFixed(2) + "%";
+  document.getElementById("kpi-fail").textContent     = totFail.toLocaleString();
+  document.getElementById("kpi-time").textContent     = formatDuration(totSuc ? wTime/totSuc : 0);
+
+  document.getElementById("sb-count-val").textContent = totSuc.toLocaleString();
+
+  // Period-over-period delta (full range only — when date is filtered, prev period comparison is unclear)
+  const prev = RAW.prev_summary;
+  const isFullRange = STATE.dateStart === SNAPSHOT_RANGE.start && STATE.dateEnd === SNAPSHOT_RANGE.end;
+  if (prev && isFullRange) {
+    _setDelta("kpi-sessions-delta", sessions, prev.sessions);
+    _setDelta("kpi-users-delta",    users,    prev.users);
+    _setDelta("kpi-success-delta",  totSuc,   prev.conversions);
+    _setDelta("kpi-site-cr-delta",  siteCR,   prev.site_cr_pct);
+  } else {
+    ["kpi-sessions-delta","kpi-users-delta","kpi-success-delta","kpi-site-cr-delta"]
+      .forEach(id => { const e = document.getElementById(id); if (e) e.innerHTML = ""; });
+  }
+}
+
+function renderTimeline() {
+  const tl = CUR_TIMELINE;
+  // Build daily sessions map for CR% line
+  const sessMap = {};
+  for (const r of RAW.sessions_daily || []) sessMap[r.date] = r.sessions || 0;
+  const crData = tl.map(t => {
+    const s = sessMap[t.date] || 0;
+    const c = t.conversion_success || 0;
+    return s > 0 ? parseFloat((c / s * 100).toFixed(3)) : null;
+  });
+  const hasSessionData = crData.some(v => v !== null);
+  timelineChart.setOption({
+    tooltip: { trigger: "axis" },
+    legend: {
+      data: hasSessionData
+        ? ["Conversions","Failed","Interactions","Site CR%"]
+        : ["Conversions","Failed","Interactions"],
+      top: 0, textStyle: { fontSize: 11 },
+    },
+    grid: { left: 44, right: hasSessionData ? 60 : 20, top: 38, bottom: 30 },
+    xAxis: { type: "category", data: tl.map(t => t.date), axisLabel: { fontSize: 10 } },
+    yAxis: [
+      { type: "value", axisLabel: { fontSize: 10 }, minInterval: 1 },
+      hasSessionData ? {
+        type: "value", name: "CR%", nameTextStyle: { fontSize: 9 },
+        axisLabel: { fontSize: 9, formatter: v => v.toFixed(2) + "%" },
+        splitLine: { show: false },
+      } : null,
+    ].filter(Boolean),
+    series: [
+      { name: "Conversions", type: "line", smooth: true, yAxisIndex: 0,
+        data: tl.map(t => t.conversion_success||0),
+        areaStyle: { opacity: 0.18 }, itemStyle: { color: "#00A878" }, lineStyle: { width: 2 } },
+      { name: "Failed", type: "line", smooth: true, yAxisIndex: 0,
+        data: tl.map(t => t.conversion_attempt_failed||0),
+        areaStyle: { opacity: 0.15 }, itemStyle: { color: "#A32D2D" }, lineStyle: { width: 2 } },
+      { name: "Interactions", type: "line", smooth: true, yAxisIndex: 0,
+        data: tl.map(t => t.form_interaction||0),
+        areaStyle: { opacity: 0.1 }, itemStyle: { color: "#4B1EF7" }, lineStyle: { width: 2 } },
+      ...(hasSessionData ? [{
+        name: "Site CR%", type: "line", smooth: true, yAxisIndex: 1,
+        data: crData, symbol: "none",
+        lineStyle: { width: 2, type: "dashed", color: "#BA7517" },
+        itemStyle: { color: "#BA7517" },
+      }] : []),
+    ],
+  }, true);
+}
+
+function renderFunnel() {
+  const pf = CUR_PER_FORM;
+  const totSuc  = pf.reduce((s, f) => s + f.success, 0);
+  const totFail = pf.reduce((s, f) => s + f.fail, 0);
+  const totInt  = pf.reduce((s, f) => s + f.interactions, 0);
+  const attempts = totSuc + totFail;
+  const { sessions } = CUR_SESSIONS;
+
+  const allSteps = [
+    { label: "Sessions",     value: sessions, cf: "#6B7280", ct: "#4B5563" },
+    { label: "Interactions", value: totInt,   cf: "#4B1EF7", ct: "#3C3489" },
+    { label: "Attempts",     value: attempts, cf: "#0099C8", ct: "#007DA8" },
+    { label: "Conversions",  value: totSuc,   cf: "#00A878", ct: "#008960" },
+  ];
+  const steps = allSteps.filter(s => s.value > 0);
+  const el = document.getElementById("chart-funnel");
+  if (!steps.length) {
+    el.innerHTML = `<div class="empty" style="margin:auto;"><div class="ic"><i class="fa-solid fa-filter"></i></div>No data</div>`;
+    return;
+  }
+  // Width proportional to value; clamp min 28% so text stays readable
+  const maxVal = steps[0].value;
+  const w = steps.map(s => Math.max(28, Math.round(s.value / maxVal * 100)));
+
+  let html = '<div class="funnel-viz">';
+  steps.forEach((step, i) => {
+    html += `<div class="funnel-step-wrap">
+      <div class="funnel-bar" style="width:${w[i]}%;--cf:${step.cf};--ct:${step.ct};">
+        <span class="f-label">${step.label}</span>
+        <span class="f-val">${step.value.toLocaleString()}</span>
+      </div>
+    </div>`;
+    if (i < steps.length - 1) {
+      const nextVal = steps[i + 1].value;
+      const passedPct = (nextVal / step.value * 100).toFixed(1);
+      const dropPct   = (100 - nextVal / step.value * 100).toFixed(1);
+      html += `<div class="funnel-connector">
+        <i class="arr fa-solid fa-caret-down"></i>
+        <div class="rates">
+          <span class="passed">&#x2713; ${passedPct}% pass</span>
+          <span class="dropped">&#x2193; ${dropPct}% drop</span>
+        </div>
+      </div>`;
+    }
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// ── Per-form table ────────────────────────────────────────────────────────
+let sortState = { col: "conversion_rate_pct", dir: "desc" };
+function renderPerFormTable() {
+  const pf = [...CUR_PER_FORM];
+  pf.sort((a, b) => {
+    const va = a[sortState.col], vb = b[sortState.col];
+    if (typeof va === "string") return sortState.dir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+    return sortState.dir === "asc" ? va - vb : vb - va;
+  });
+  const tbody = document.getElementById("tbody-per-form");
+  if (!pf.length) { tbody.innerHTML = emptyRow(9); return; }
+  tbody.innerHTML = pf.map(f => `
+    <tr class="row-filterable ${STATE.lead.has(f.conversion_id) ? 'row-active' : ''}"
+        data-dim="lead" data-value="${escapeAttr(f.conversion_id)}">
+      <td><span class="pill pill-primary">${escapeHtml(f.conversion_id)}</span></td>
+      <td><span class="pill pill-neutral">${escapeHtml(f.trigger_type || "?")}</span></td>
+      <td><span class="pill pill-info" style="font-size:10px;">${escapeHtml(f.detection || "?")}</span></td>
+      <td class="num">${f.attempts.toLocaleString()}</td>
+      <td class="num" style="color: var(--green); font-weight: 600;">${f.success.toLocaleString()}</td>
+      <td class="num" style="color: var(--red);">${f.fail.toLocaleString()}</td>
+      <td class="num">
+        <div class="bar-cell">
+          <span style="min-width: 42px; font-weight: 600;">${f.conversion_rate_pct.toFixed(1)}%</span>
+          <div class="bar"><div style="width: ${Math.min(f.conversion_rate_pct, 100)}%;"></div></div>
+        </div>
+      </td>
+      <td class="num" style="color: var(--orange);">${formatDuration(f.avg_time_ms)}</td>
+      <td class="num" style="color: var(--primary);">${f.interactions.toLocaleString()}</td>
+    </tr>
+  `).join("");
+  document.querySelectorAll("#table-per-form th[data-col]").forEach(th => {
+    th.classList.remove("sort-asc", "sort-desc");
+    if (th.dataset.col === sortState.col) th.classList.add(sortState.dir === "asc" ? "sort-asc" : "sort-desc");
+  });
+}
+
+function renderFailures() {
+  const fl = CUR_FAILURES;
+  const byReason = {};
+  for (const f of fl) byReason[f.reason] = (byReason[f.reason]||0) + f.count;
+  const pieData = Object.entries(byReason).map(([n, v]) => ({ name: n, value: v })).sort((a, b) => b.value - a.value);
+  failuresChart.setOption({
+    tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)" },
+    legend: { bottom: 0, fontSize: 10, type: "scroll" },
+    series: [{
+      type: "pie", radius: ["35%", "65%"], center: ["50%", "42%"],
+      label: { fontSize: 10 },
+      data: pieData,
+    }],
+  }, true);
+  failuresChart.off("click");
+  failuresChart.on("click", (p) => toggleFilter("failReason", p.name));
+
+  const totalFails = fl.reduce((s, f) => s + f.count, 0);
+  const tbody = document.getElementById("tbody-failures");
+  if (!fl.length) { tbody.innerHTML = emptyRow(4); return; }
+  tbody.innerHTML = fl.slice(0, 20).map(f => `
+    <tr class="row-filterable ${STATE.failReason.has(f.reason) ? 'row-active' : ''}"
+        data-dim="failReason" data-value="${escapeAttr(f.reason)}">
+      <td><span class="pill pill-bad">${escapeHtml(f.reason)}</span></td>
+      <td><span class="pill pill-primary">${escapeHtml(f.conversion_id)}</span></td>
+      <td class="num">${f.count.toLocaleString()}</td>
+      <td class="num" style="color: var(--gray-3);">${(f.count/totalFails*100).toFixed(1)}%</td>
+    </tr>
+  `).join("");
+}
+
+function renderInteractions() {
+  const items = CUR_INTERACTIONS;
+  const byType = {};
+  for (const i of items) byType[i.interaction] = (byType[i.interaction]||0) + i.count;
+  const sorted = Object.entries(byType).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  interactionsChart.setOption({
+    tooltip: { trigger: "axis" },
+    grid: { left: 110, right: 30, top: 10, bottom: 20 },
+    xAxis: { type: "value", axisLabel: { fontSize: 10 } },
+    yAxis: { type: "category", data: sorted.map(([k]) => k).reverse(), axisLabel: { fontSize: 11 } },
+    series: [{
+      type: "bar", data: sorted.map(([_, v]) => v).reverse(),
+      itemStyle: { color: "#0099C8", borderRadius: [0, 3, 3, 0] },
+      label: { show: true, position: "right", fontSize: 10, color: "var(--gray-2)" },
+    }],
+  }, true);
+
+  const tbody = document.getElementById("tbody-interactions");
+  if (!items.length) { tbody.innerHTML = emptyRow(3); return; }
+  tbody.innerHTML = items.slice(0, 50).map(i => `
+    <tr>
+      <td style="font-size: 12px;">${escapeHtml(i.interaction)}</td>
+      <td><span class="pill pill-primary">${escapeHtml(i.conversion_id)}</span></td>
+      <td class="num">${i.count.toLocaleString()}</td>
+    </tr>
+  `).join("");
+}
+
+function renderJourney() {
+  const rows = CUR_JOURNEY;
+  const total = rows.reduce((s, r) => s + r.count, 0);
+  const tbody = document.getElementById("tbody-journey");
+  if (!rows.length) { tbody.innerHTML = emptyRow(8); return; }
+  tbody.innerHTML = rows.slice(0, 50).map(r => {
+    const all = (r.pages_visited || "").split(">").map(s => s.trim()).filter(Boolean);
+    let middle = all.length > 2 ? all.slice(1, -1) : [];
+    let extra = 0; if (middle.length > 5) { extra = middle.length - 5; middle = middle.slice(0, 5); }
+    const middleHtml = middle.length
+      ? middle.map(p => `<span class="pill pill-neutral" style="margin-right: 4px; margin-bottom: 3px; display: inline-block;">${escapeHtml(p)}</span>`).join("")
+        + (extra ? `<span style="color: var(--gray-4); font-size: 11px;">… +${extra}</span>` : "")
+      : `<span style="color: var(--gray-4); font-size: 11px;">(direct)</span>`;
+    const tyHtml = r.thank_you_path
+      ? `<span style="font-family:ui-monospace,monospace;font-size:11px;color:var(--green);">${escapeHtml(r.thank_you_path)}</span>`
+      : `<span style="color:var(--gray-4);font-size:11px;">—</span>`;
+    return `
+      <tr class="row-filterable ${STATE.lead.has(r.conversion_id) ? 'row-active' : ''}"
+          data-dim="lead" data-value="${escapeAttr(r.conversion_id)}">
+        <td><span class="pill pill-primary">${escapeHtml(r.conversion_id)}</span></td>
+        <td style="font-family: ui-monospace, monospace; font-size: 12px; color: var(--gray-2);">${escapeHtml(r.landing)}</td>
+        <td>${middleHtml}</td>
+        <td style="font-family: ui-monospace, monospace; font-size: 12px; color: var(--green);">${escapeHtml(r.submission)}</td>
+        <td>${tyHtml}</td>
+        <td class="num" style="color: var(--gray-3);">${r.journey_length || all.length || 1}</td>
+        <td class="num" style="font-weight: 600;">${r.count.toLocaleString()}</td>
+        <td class="num" style="color: var(--gray-3);">${(r.count/total*100).toFixed(1)}%</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function renderDevice() {
+  const rows = CUR_DEVICE;
+  const total = rows.reduce((s, r) => s + r.count, 0);
+  const byDev = {};
+  for (const r of rows) byDev[r.device] = (byDev[r.device]||0) + r.count;
+  const palette = { desktop: "#4B1EF7", mobile: "#00A878", tablet: "#BA7517" };
+  deviceChart.setOption({
+    tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)" },
+    legend: { bottom: 0, fontSize: 11 },
+    series: [{
+      type: "pie", radius: ["38%", "68%"], center: ["50%", "42%"],
+      label: { fontSize: 11 },
+      data: Object.entries(byDev).map(([k, v]) => ({ name: k, value: v, itemStyle: { color: palette[k] || "#9CA3AF" } })),
+    }],
+  }, true);
+  deviceChart.off("click");
+  deviceChart.on("click", (p) => toggleFilter("device", p.name));
+
+  const tbody = document.getElementById("tbody-device");
+  if (!rows.length) { tbody.innerHTML = emptyRow(7); return; }
+  tbody.innerHTML = rows.slice(0, 30).map(r => {
+    const isActive = STATE.device.has(r.device) || STATE.os.has(r.os) || STATE.screen.has(r.screen);
+    const devSess = CUR_DEVICE_SESSIONS.get(r.device) || 0;
+    const devCR   = devSess ? (r.count / devSess * 100) : 0;
+    return `
+    <tr class="row-filterable ${isActive ? 'row-active' : ''}"
+        data-dim="device" data-value="${escapeAttr(r.device)}">
+      <td><span class="pill pill-info">${escapeHtml(r.device)}</span></td>
+      <td style="font-size: 12px;">${escapeHtml(r.os)}</td>
+      <td style="font-family: ui-monospace, monospace; font-size: 11px; color: var(--gray-3);">${escapeHtml(r.screen)}</td>
+      <td class="num" style="color:var(--gray-3);">${devSess ? devSess.toLocaleString() : "—"}</td>
+      <td class="num" style="font-weight:600;color:var(--primary);">${devSess ? devCR.toFixed(2) + "%" : "—"}</td>
+      <td class="num">${r.count.toLocaleString()}</td>
+      <td class="num" style="color: var(--gray-3);">${(r.count/total*100).toFixed(1)}%</td>
+    </tr>
+  `; }).join("");
+}
+
+function renderGeo() {
+  const rows = CUR_GEO;
+  const total = rows.reduce((s, r) => s + r.count, 0);
+  const tbody = document.getElementById("tbody-geo");
+  if (!rows.length) { tbody.innerHTML = emptyRow(4); return; }
+  tbody.innerHTML = rows.slice(0, 100).map(r => `
+    <tr class="row-filterable ${STATE.region.has(r.region) || STATE.city.has(r.city) ? 'row-active' : ''}"
+        data-dim="region" data-value="${escapeAttr(r.region)}">
+      <td>${escapeHtml(r.region)}</td>
+      <td style="color: var(--gray-3); font-size: 12px;">${escapeHtml(r.city)}</td>
+      <td class="num">${r.count.toLocaleString()}</td>
+      <td class="num" style="color: var(--gray-3);">${(r.count/total*100).toFixed(1)}%</td>
+    </tr>
+  `).join("");
+}
+
+function renderLandingPages() {
+  const rows = CUR_LANDING_PAGES;
+  const totalConv = rows.reduce((s, r) => s + r.conv, 0);
+  const tbody = document.getElementById("tbody-landing-pages");
+  if (!tbody) return;
+  if (!rows.length) { tbody.innerHTML = emptyRow(5); return; }
+  tbody.innerHTML = rows.slice(0, 100).map(r => {
+    const crClass = r.cr > 1 ? "style=\"color:var(--green);font-weight:700;\""
+                  : r.cr > 0.1 ? "style=\"font-weight:600;\""
+                  : "style=\"color:var(--gray-4);\"";
+    return `<tr>
+      <td style="font-family:ui-monospace,monospace;font-size:12px;">${escapeHtml(r.landing_page)}</td>
+      <td class="num" style="color:var(--gray-3);">${r.sessions.toLocaleString()}</td>
+      <td class="num" style="font-weight:600;">${r.conv.toLocaleString()}</td>
+      <td class="num" ${crClass}>${r.sessions ? r.cr.toFixed(2) + "%" : "—"}</td>
+      <td class="num" style="color:var(--gray-3);">${totalConv ? (r.conv/totalConv*100).toFixed(1) + "%" : "—"}</td>
+    </tr>`;
+  }).join("");
+}
+
+const CHANNEL_COLORS = {
+  "Organic Search":  "#00A878", "Paid Search": "#4B1EF7",
+  "Direct":          "#0099C8", "Referral":    "#BA7517",
+  "Organic Social":  "#9333EA", "Paid Social": "#7C3AED",
+  "Email":           "#DC2626", "Affiliates":  "#EA580C",
+  "Display":         "#0891B2", "(Other)":     "#6B7280",
+  "(other)":         "#6B7280",
+};
+function channelColor(ch) { return CHANNEL_COLORS[ch] || "#9CA3AF"; }
+
+function renderChannel() {
+  const rows = CUR_CHANNEL;
+  const el = document.getElementById("chart-channel");
+  const tbody = document.getElementById("tbody-channel");
+  if (!rows.length) {
+    el.innerHTML = `<div class="empty" style="margin:auto;"><div class="ic"><i class="fa-solid fa-layer-group"></i></div>No channel data</div>`;
+    tbody.innerHTML = emptyRow(5);
+    return;
+  }
+  // Bar chart: CR% per channel, sorted desc
+  const sorted = [...rows].sort((a, b) => b.cr - a.cr);
+  channelChart.setOption({
+    tooltip: { trigger: "axis", formatter: p => `${p[0].name}: ${p[0].value.toFixed(2)}% CR (${rows.find(r=>r.channel_group===p[0].name)?.sessions?.toLocaleString() || 0} sessions)` },
+    grid: { left: 130, right: 60, top: 10, bottom: 20 },
+    xAxis: { type: "value", axisLabel: { fontSize: 10, formatter: v => v.toFixed(2) + "%" } },
+    yAxis: { type: "category", data: sorted.map(r => r.channel_group).reverse(),
+             axisLabel: { fontSize: 11 } },
+    series: [{
+      type: "bar", barMaxWidth: 28,
+      data: sorted.map(r => ({
+        value: parseFloat(r.cr.toFixed(3)),
+        itemStyle: { color: channelColor(r.channel_group), borderRadius: [0,4,4,0] },
+      })).reverse(),
+      label: { show: true, position: "right", fontSize: 10,
+               formatter: p => p.value > 0 ? p.value.toFixed(2) + "%" : "" },
+    }],
+  }, true);
+  channelChart.off("click");
+  channelChart.on("click", p => toggleFilter("channelGroup", p.name));
+
+  const totalConv = rows.reduce((s, r) => s + r.conv, 0);
+  const maxCR = rows.length ? Math.max(...rows.map(r => r.cr)) : 1;
+  tbody.innerHTML = rows.map(r => {
+    const isActive = STATE.channelGroup.has(r.channel_group);
+    const crBar = r.cr > 0 ? `<div class="bar-cell"><span style="min-width:46px;font-weight:600;">${r.cr.toFixed(2)}%</span><div class="bar"><div style="width:${Math.min(r.cr/maxCR*100,100)}%;background:${channelColor(r.channel_group)};"></div></div></div>` : `<span style="color:var(--gray-4)">—</span>`;
+    const engTxt = r.avg_eng > 0 ? r.avg_eng.toFixed(1) + "%" : "—";
+    const durTxt = r.avg_dur > 0 ? formatDuration(r.avg_dur * 1000) : "—";
+    return `<tr class="row-filterable ${isActive ? 'row-active' : ''}" data-dim="channelGroup" data-value="${escapeAttr(r.channel_group)}">
+      <td><span class="pill" style="background:${channelColor(r.channel_group)}20;color:${channelColor(r.channel_group)};font-size:11px;font-weight:700;">${escapeHtml(r.channel_group)}</span></td>
+      <td class="num" style="color:var(--gray-3);">${r.sessions.toLocaleString()}</td>
+      <td class="num" style="font-weight:600;">${r.conv.toLocaleString()}</td>
+      <td class="num">${crBar}</td>
+      <td class="num" style="color:var(--gray-3);">${engTxt}</td>
+      <td class="num" style="color:var(--gray-3);">${durTxt}</td>
+    </tr>`;
+  }).join("");
+}
+
+function renderSource() {
+  const rows = CUR_SOURCE;
+  const total = rows.reduce((s, r) => s + r.count, 0);
+  const tbody = document.getElementById("tbody-source");
+  if (!rows.length) { tbody.innerHTML = emptyRow(6); return; }
+  tbody.innerHTML = rows.slice(0, 100).map(r => {
+    const isActive = STATE.channelGroup.has(r.channel_group) || STATE.source.has(r.source) || STATE.medium.has(r.medium) || STATE.campaign.has(r.campaign);
+    return `<tr class="row-filterable ${isActive ? 'row-active' : ''}" data-dim="channelGroup" data-value="${escapeAttr(r.channel_group)}">
+      <td><span class="pill" style="background:${channelColor(r.channel_group)}20;color:${channelColor(r.channel_group)};font-size:11px;font-weight:700;">${escapeHtml(r.channel_group)}</span></td>
+      <td style="font-weight:600;font-size:12px;">${escapeHtml(r.source)}</td>
+      <td style="color:var(--gray-3);font-size:12px;">${escapeHtml(r.medium)}</td>
+      <td style="color:var(--gray-4);font-size:11px;">${escapeHtml(r.campaign)}</td>
+      <td class="num">${r.count.toLocaleString()}</td>
+      <td class="num" style="color:var(--gray-3);">${(r.count/total*100).toFixed(1)}%</td>
+    </tr>`;
+  }).join("");
+}
+
+const DOW_ORDER = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+function renderHeatmap() {
+  const rows = CUR_TIME;
+  const present = new Set(rows.map(r => r.day_of_week));
+  const days = DOW_ORDER.filter(d => present.has(d));
+  if (!days.length) days.push(...DOW_ORDER);
+  const data = rows.map(r => [r.hour, days.indexOf(r.day_of_week), r.count]).filter(d => d[1] >= 0);
+  const maxV = data.reduce((m, d) => Math.max(m, d[2]), 0) || 1;
+  heatmapChart.setOption({
+    tooltip: { position: "top", formatter: p => `${days[p.value[1]]} ${p.value[0]}h: ${p.value[2]} conv` },
+    grid: { left: 70, right: 20, top: 10, bottom: 30 },
+    xAxis: { type: "category", data: Array.from({length: 24}, (_, i) => i + "h"),
+             splitArea: { show: true }, axisLabel: { fontSize: 10 } },
+    yAxis: { type: "category", data: days, splitArea: { show: true }, axisLabel: { fontSize: 11 } },
+    visualMap: { min: 0, max: maxV, calculable: false, show: false,
+                 inRange: { color: ["#F5F2FF", "#4B1EF7", "#3C3489"] } },
+    series: [{
+      type: "heatmap", data,
+      label: { show: true, fontSize: 10, color: "#fff",
+               formatter: p => p.value[2] > 0 ? p.value[2] : "" },
+      emphasis: { itemStyle: { shadowBlur: 8 } },
+    }],
+  }, true);
+  heatmapChart.off("click");
+  heatmapChart.on("click", (p) => {
+    const day = days[p.value[1]]; const hour = p.value[0];
+    toggleFilter("day", day);
+    if (!STATE.hour.has(hour)) STATE.hour.add(hour); else STATE.hour.delete(hour);
+    recomputeAll(); renderAll(); updateHash();
+  });
+}
+
+function renderUserSegment() {
+  const ut = CUR_SEGMENT.user_types;
+  usertypeChart.setOption({
+    tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)" },
+    legend: { bottom: 0, fontSize: 11 },
+    series: [{
+      type: "pie", radius: ["40%", "70%"], center: ["50%", "42%"],
+      label: { fontSize: 11 },
+      data: ut.map(x => ({ name: x.name, value: x.value,
+        itemStyle: { color: x.name === "new" ? "#00A878" : "#4B1EF7" } })),
+    }],
+  }, true);
+  usertypeChart.off("click");
+  usertypeChart.on("click", (p) => toggleFilter("userType", p.name));
+
+  // New vs Returning CR table
+  const crTbody = document.getElementById("tbody-usertype-cr");
+  const totalConvByType = new Map();
+  for (const x of ut) totalConvByType.set(x.name, x.value);
+  const utRows = [...CUR_SEGMENT_SESSIONS.entries()].sort((a, b) => b[1] - a[1]);
+  if (utRows.length && crTbody) {
+    crTbody.innerHTML = utRows.map(([utype, sess]) => {
+      const conv = totalConvByType.get(utype) || 0;
+      const cr   = sess ? (conv / sess * 100) : 0;
+      const isActive = STATE.userType.has(utype);
+      return `<tr class="row-filterable ${isActive ? 'row-active' : ''}"
+          data-dim="userType" data-value="${escapeAttr(utype)}">
+        <td style="font-size:12px;">${escapeHtml(utype)}</td>
+        <td class="num" style="color:var(--gray-3);">${sess.toLocaleString()}</td>
+        <td class="num" style="font-weight:600;">${conv.toLocaleString()}</td>
+        <td class="num" style="color:var(--primary);font-weight:700;">${sess ? cr.toFixed(2)+"%" : "—"}</td>
+      </tr>`;
+    }).join("");
+  } else if (crTbody) {
+    crTbody.innerHTML = emptyRow(4);
+  }
+
+  const browsers = CUR_SEGMENT.browsers;
+  const tbody = document.getElementById("tbody-browser");
+  if (!browsers.length) { tbody.innerHTML = emptyRow(2); return; }
+  tbody.innerHTML = browsers.slice(0, 10).map(b => `
+    <tr class="row-filterable ${STATE.browser.has(b.name) ? 'row-active' : ''}"
+        data-dim="browser" data-value="${escapeAttr(b.name)}">
+      <td style="font-size: 12px;">${escapeHtml(b.name)}</td>
+      <td class="num">${b.value.toLocaleString()}</td>
+    </tr>
+  `).join("");
+}
+
+// ── Filter chips in statusbar ─────────────────────────────────────────────
+function renderStatusbar() {
+  const isFullRange = STATE.dateStart === SNAPSHOT_RANGE.start && STATE.dateEnd === SNAPSHOT_RANGE.end;
+  document.getElementById("sb-daterange").textContent =
+    isFullRange ? `${SNAPSHOT_RANGE.start} → ${SNAPSHOT_RANGE.end}` : `${STATE.dateStart} → ${STATE.dateEnd}`;
+
+  const sbf = document.getElementById("sb-filters-active");
+  const chips = [];
+  let totalActive = isFullRange ? 0 : 1;
+  for (const dim in DIM_META) {
+    const set = STATE[dim];
+    for (const v of set) {
+      totalActive++;
+      chips.push(`<span class="filter-chip"><i class="fa-solid fa-${DIM_META[dim].icon}"></i> ${DIM_META[dim].label}: ${escapeHtml(String(v))}<button class="remove" data-dim="${dim}" data-value="${escapeAttr(String(v))}" title="Remove">×</button></span>`);
+    }
+  }
+  sbf.innerHTML = chips.join("");
+  document.getElementById("btn-reset-all").style.display = totalActive ? "" : "none";
+}
+
+// ── Filter dropdowns (lead, trigger) ──────────────────────────────────────
+function buildDropdowns() {
+  const leads = [...new Set((RAW.per_form_daily || []).map(r => r.conversion_id))].sort();
+  const triggers = [...new Set((RAW.per_form_daily || []).map(r => r.trigger_type).filter(Boolean))].sort();
+  document.getElementById("lead-menu").innerHTML = leads.map(v =>
+    `<label><input type="checkbox" data-dim="lead" value="${escapeAttr(v)}" ${STATE.lead.has(v)?'checked':''}> ${escapeHtml(v)}</label>`
+  ).join("") || `<div style="padding:10px; color: var(--gray-4);">No leads</div>`;
+  document.getElementById("trigger-menu").innerHTML = triggers.map(v =>
+    `<label><input type="checkbox" data-dim="trigger" value="${escapeAttr(v)}" ${STATE.trigger.has(v)?'checked':''}> ${escapeHtml(v)}</label>`
+  ).join("") || `<div style="padding:10px; color: var(--gray-4);">No triggers</div>`;
+  updateDropdownCounts();
+}
+
+function updateDropdownCounts() {
+  const lc = STATE.lead.size, tc = STATE.trigger.size;
+  document.getElementById("lead-count").style.display = lc ? "" : "none";
+  document.getElementById("lead-count").textContent = lc;
+  document.getElementById("trigger-count").style.display = tc ? "" : "none";
+  document.getElementById("trigger-count").textContent = tc;
+}
+
+// ── Event handlers ────────────────────────────────────────────────────────
+function bindEvents() {
+  // Dropdowns toggle
+  document.querySelectorAll(".dropdown .dropdown-btn").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.stopPropagation();
+      const dd = btn.closest(".dropdown");
+      document.querySelectorAll(".dropdown.open").forEach(d => { if (d !== dd) d.classList.remove("open"); });
+      dd.classList.toggle("open");
+    });
+  });
+  document.addEventListener("click", () => {
+    document.querySelectorAll(".dropdown.open").forEach(d => d.classList.remove("open"));
+  });
+  document.querySelectorAll(".dropdown-menu").forEach(m => m.addEventListener("click", e => e.stopPropagation()));
+
+  // Dropdown checkbox changes
+  document.querySelectorAll(".dropdown-menu input[type=checkbox]").forEach(cb => {
+    cb.addEventListener("change", () => {
+      const dim = cb.dataset.dim, val = cb.value;
+      if (cb.checked) STATE[dim].add(val); else STATE[dim].delete(val);
+      updateDropdownCounts();
+      recomputeAll(); renderAll(); updateHash();
+    });
+  });
+
+  // Click-to-filter on rows
+  document.body.addEventListener("click", e => {
+    const row = e.target.closest("tr.row-filterable");
+    if (row && row.dataset.dim) {
+      toggleFilter(row.dataset.dim, row.dataset.value);
+      return;
+    }
+    // Remove chip in statusbar
+    const rmBtn = e.target.closest(".filter-chip .remove");
+    if (rmBtn) {
+      e.stopPropagation();
+      toggleFilter(rmBtn.dataset.dim, rmBtn.dataset.value);
+      // Sync checkbox in dropdown if applicable
+      const cb = document.querySelector(`.dropdown-menu input[data-dim="${rmBtn.dataset.dim}"][value="${cssEscape(rmBtn.dataset.value)}"]`);
+      if (cb) cb.checked = false;
+      updateDropdownCounts();
+    }
+  });
+
+  // Per-form table sort
+  document.querySelectorAll("#table-per-form th[data-col]").forEach(th => {
+    th.addEventListener("click", () => {
+      const col = th.dataset.col;
+      if (sortState.col === col) sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
+      else { sortState.col = col; sortState.dir = "desc"; }
+      renderPerFormTable();
+    });
+  });
+
+  // Reset all
+  document.getElementById("btn-reset-all").addEventListener("click", resetAll);
+
+  // Date filter reset
+  document.getElementById("filter-date-reset").addEventListener("click", () => {
+    STATE.dateStart = SNAPSHOT_RANGE.start;
+    STATE.dateEnd = SNAPSHOT_RANGE.end;
+    if (datePicker) datePicker.setDate([SNAPSHOT_RANGE.start, SNAPSHOT_RANGE.end], false);
+    recomputeAll(); renderAll(); updateHash();
+  });
+}
+
+function resetAll() {
+  STATE.dateStart = SNAPSHOT_RANGE.start;
+  STATE.dateEnd = SNAPSHOT_RANGE.end;
+  for (const dim in DIM_META) STATE[dim].clear();
+  if (datePicker) datePicker.setDate([SNAPSHOT_RANGE.start, SNAPSHOT_RANGE.end], false);
+  document.querySelectorAll(".dropdown-menu input[type=checkbox]").forEach(cb => cb.checked = false);
+  updateDropdownCounts();
+  recomputeAll(); renderAll(); updateHash();
+}
+
+// ── Date picker ───────────────────────────────────────────────────────────
+let datePicker;
+function initDateFilter() {
+  datePicker = flatpickr(document.getElementById("filter-date"), {
+    mode: "range", dateFormat: "Y-m-d",
+    minDate: SNAPSHOT_RANGE.start, maxDate: SNAPSHOT_RANGE.end,
+    defaultDate: [SNAPSHOT_RANGE.start, SNAPSHOT_RANGE.end],
+    onClose: (dates) => {
+      if (dates.length !== 2) return;
+      const fmt = d => d.toISOString().slice(0, 10);
+      STATE.dateStart = fmt(dates[0]); STATE.dateEnd = fmt(dates[1]);
+      recomputeAll(); renderAll(); updateHash();
+    },
+  });
+}
+
+// ── URL hash ──────────────────────────────────────────────────────────────
+function updateHash() {
+  const parts = [];
+  if (STATE.dateStart !== SNAPSHOT_RANGE.start || STATE.dateEnd !== SNAPSHOT_RANGE.end)
+    parts.push(`date=${STATE.dateStart}_${STATE.dateEnd}`);
+  for (const dim in DIM_META) {
+    if (STATE[dim].size)
+      parts.push(`${dim}=` + [...STATE[dim]].map(encodeURIComponent).join(","));
+  }
+  history.replaceState(null, "", parts.length ? "#" + parts.join("&") : window.location.pathname);
+}
+
+function loadHash() {
+  const h = window.location.hash.slice(1);
+  if (!h) return;
+  for (const part of h.split("&")) {
+    const [k, v] = part.split("="); if (!v) continue;
+    if (k === "date") {
+      const [s, e] = v.split("_");
+      if (s && e) { STATE.dateStart = s; STATE.dateEnd = e; }
+    } else if (DIM_META[k]) {
+      const vals = v.split(",").map(decodeURIComponent);
+      vals.forEach(val => STATE[k].add(k === "hour" ? parseInt(val) : val));
+    }
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function formatDuration(ms) {
+  if (!ms || ms <= 0) return "—";
+  const s = ms / 1000;
+  if (s < 60) return s.toFixed(1) + "s";
+  const m = Math.floor(s / 60), r = Math.round(s - m * 60);
+  return `${m}m ${r}s`;
+}
+function escapeHtml(s) {
+  if (s == null) return "";
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
+function cssEscape(s) { return String(s).replace(/["\\]/g, "\\$&"); }
+function emptyRow(cols) {
+  return `<tr><td colspan="${cols}" class="empty" style="border: none;"><div class="ic"><i class="fa-regular fa-folder-open"></i></div>No data</td></tr>`;
+}
+
+// ── Render all ────────────────────────────────────────────────────────────
+function renderAll() {
+  renderKpi(); renderTimeline(); renderFunnel();
+  renderPerFormTable(); renderFailures(); renderInteractions();
+  renderJourney(); renderLandingPages();
+  renderDevice(); renderGeo(); renderChannel(); renderSource();
+  renderHeatmap(); renderUserSegment();
+  renderStatusbar();
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+initCharts();
+initDateFilter();
+loadHash();
+buildDropdowns();
+bindEvents();
+if (STATE.dateStart !== SNAPSHOT_RANGE.start || STATE.dateEnd !== SNAPSHOT_RANGE.end) {
+  if (datePicker) datePicker.setDate([STATE.dateStart, STATE.dateEnd], false);
+}
+recomputeAll(); renderAll();
+</script>
+</body>
+</html>

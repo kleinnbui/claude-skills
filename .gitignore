@@ -1,0 +1,24 @@
+# Python environments
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# OAuth credentials — NEVER commit these
+oauth_client.json
+**/credentials/*.json
+!**/credentials/.gitkeep
+
+# Profile data containing real account IDs / tokens
+accounts.json
+
+# Client-specific configs (keep only example)
+cro-setup/configs/*.json
+!cro-setup/configs/example.json
+
+# Generated reports
+**/reports/*.html
+
+# Local state
+last_run.json

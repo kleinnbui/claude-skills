@@ -1,0 +1,40 @@
+{
+  "version": "1.0",
+  "project": {
+    "clientName": "Example Site",
+    "gtmContainerId": "GTM-XXXXXXX",
+    "ga4PropertyId": "123456789"
+  },
+  "forms": [
+    {
+      "name": "contact_footer",
+      "triggerType": "dom_change",
+      "formSelector": "#contact-form",
+      "successSelector": ".form-success",
+      "successGlobal": false,
+      "validationErrorSelector": ".error-text:not(:empty)",
+      "timeout": 15000
+    },
+    {
+      "name": "popup_lead",
+      "triggerType": "cf7_class",
+      "formSelector": ".wpcf7-form.popup",
+      "cf7SuccessClass": "wpcf7-mail-sent-ok",
+      "cf7FailClasses": "wpcf7-mail-sent-ng,wpcf7-validation-errors,wpcf7-spam-blocked",
+      "cf7ResponseSelector": ".wpcf7-response-output",
+      "timeout": 15000
+    }
+  ],
+  "others": [
+    {"name": "phone_click", "triggerType": "url_contains", "pattern": "tel:"},
+    {"name": "zalo_click",  "triggerType": "text_contains", "pattern": "Chat Zalo"}
+  ],
+  "abTests": [
+    {
+      "testId": "footer_popup_v1",
+      "pages": ".*",
+      "variants": "control,social_proof",
+      "split": "50,50"
+    }
+  ]
+}
