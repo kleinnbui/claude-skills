@@ -278,6 +278,26 @@ td .bar-cell .bar > div {
 .dropdown-menu label:hover { background: var(--primary-lighter); }
 .dropdown-menu input[type="checkbox"] { accent-color: var(--primary); }
 
+/* ==== Pagination ==== */
+.pagination {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 10px 0 2px; font-size: 12px;
+}
+.pagination .pg-btn {
+  min-width: 30px; height: 28px; padding: 0 8px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface); color: var(--gray-2);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  font-family: inherit; display: inline-flex; align-items: center; justify-content: center;
+  transition: all .12s;
+}
+.pagination .pg-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+.pagination .pg-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+.pagination .pg-btn:disabled { opacity: 0.38; cursor: not-allowed; }
+.pagination .pg-info { color: var(--gray-3); margin: 0 4px; white-space: nowrap; }
+.pagination .pg-size { margin-left: auto; display: flex; align-items: center; gap: 6px; color: var(--gray-3); }
+.pagination .pg-size select { padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; }
+
 /* ==== Empty state ==== */
 .empty {
   padding: 28px 16px; text-align: center; color: var(--gray-3);
@@ -574,6 +594,7 @@ td .bar-cell .bar > div {
         <div class="card-title"><span class="icon-tile" style="background: var(--green-light); color: var(--green);"><i class="fa-solid fa-route"></i></span> Hành trình chuyển đổi</div>
         <div class="card-subtitle">Landing → middle path → submission · click row để filter theo lead type</div>
       </div>
+      <div class="card-actions" id="journey-count" style="color: var(--gray-3); font-size: 12px;"></div>
     </div>
     <div class="table-wrap">
       <table id="table-journey">
@@ -592,6 +613,7 @@ td .bar-cell .bar > div {
         <tbody id="tbody-journey"></tbody>
       </table>
     </div>
+    <div class="pagination" id="journey-pagination"></div>
   </section>
 
   <!-- Landing Page CR -->
@@ -1412,12 +1434,14 @@ function renderFunnelSteps() {
   `).join("");
 }
 
-function renderJourney() {
-  const rows = CUR_JOURNEY;
+let JOURNEY_PAGE = 0;
+let JOURNEY_PAGE_SIZE = 25;
+
+function _renderJourneyRows(rows, page, pageSize) {
   const total = rows.reduce((s, r) => s + r.count, 0);
-  const tbody = document.getElementById("tbody-journey");
-  if (!rows.length) { tbody.innerHTML = emptyRow(8); return; }
-  tbody.innerHTML = rows.slice(0, 50).map(r => {
+  const start = page * pageSize;
+  const slice = rows.slice(start, start + pageSize);
+  return slice.map(r => {
     const all = (r.pages_visited || "").split(">").map(s => s.trim()).filter(Boolean);
     let middle = all.length > 2 ? all.slice(1, -1) : [];
     let extra = 0; if (middle.length > 5) { extra = middle.length - 5; middle = middle.slice(0, 5); }
@@ -1442,6 +1466,64 @@ function renderJourney() {
       </tr>
     `;
   }).join("");
+}
+
+function _renderJourneyPagination(totalRows, page, pageSize) {
+  const pg = document.getElementById("journey-pagination");
+  const countEl = document.getElementById("journey-count");
+  if (!pg) return;
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+  const start = page * pageSize + 1;
+  const end = Math.min((page + 1) * pageSize, totalRows);
+  if (countEl) countEl.textContent = totalRows > 0 ? `${start}–${end} / ${totalRows} hàng` : "";
+  if (totalPages <= 1) { pg.innerHTML = ""; return; }
+
+  let html = `<button class="pg-btn" ${page === 0 ? "disabled" : ""} data-pg="prev"><i class="fa-solid fa-chevron-left"></i></button>`;
+  const WINDOW = 2;
+  for (let i = 0; i < totalPages; i++) {
+    if (i === 0 || i === totalPages - 1 || Math.abs(i - page) <= WINDOW) {
+      html += `<button class="pg-btn ${i === page ? 'active' : ''}" data-pg="${i}">${i + 1}</button>`;
+    } else if (Math.abs(i - page) === WINDOW + 1) {
+      html += `<span class="pg-info">…</span>`;
+    }
+  }
+  html += `<button class="pg-btn" ${page === totalPages - 1 ? "disabled" : ""} data-pg="next"><i class="fa-solid fa-chevron-right"></i></button>`;
+  html += `<span class="pg-size">Rows/page: <select id="journey-pg-size">
+    ${[10, 25, 50, 100].map(n => `<option value="${n}" ${n === pageSize ? "selected" : ""}>${n}</option>`).join("")}
+  </select></span>`;
+  pg.innerHTML = html;
+
+  pg.querySelectorAll(".pg-btn[data-pg]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const v = btn.dataset.pg;
+      const newPage = v === "prev" ? page - 1 : v === "next" ? page + 1 : parseInt(v);
+      if (!isNaN(newPage) && newPage >= 0 && newPage < totalPages) {
+        JOURNEY_PAGE = newPage;
+        renderJourney();
+        document.getElementById("table-journey")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  });
+  const sizeEl = document.getElementById("journey-pg-size");
+  if (sizeEl) sizeEl.addEventListener("change", () => {
+    JOURNEY_PAGE_SIZE = parseInt(sizeEl.value);
+    JOURNEY_PAGE = 0;
+    renderJourney();
+  });
+}
+
+function renderJourney() {
+  const rows = CUR_JOURNEY;
+  const tbody = document.getElementById("tbody-journey");
+  if (!rows.length) {
+    tbody.innerHTML = emptyRow(8);
+    _renderJourneyPagination(0, 0, JOURNEY_PAGE_SIZE);
+    return;
+  }
+  // Reset to page 0 when data changes (filter applied), keep page if same dataset
+  if (JOURNEY_PAGE * JOURNEY_PAGE_SIZE >= rows.length) JOURNEY_PAGE = 0;
+  tbody.innerHTML = _renderJourneyRows(rows, JOURNEY_PAGE, JOURNEY_PAGE_SIZE);
+  _renderJourneyPagination(rows.length, JOURNEY_PAGE, JOURNEY_PAGE_SIZE);
 }
 
 function renderDevice() {
