@@ -21,6 +21,7 @@ Vào thư mục [`dist/`](./dist/) và tải file `.skill` của skill bạn mu�
 |------|-------|
 | [`dist/cro-setup.skill`](./dist/cro-setup.skill) | `/cro-setup` — CRO Measurement Auto-Installer |
 | [`dist/cro-report.skill`](./dist/cro-report.skill) | `/cro-report` — CRO Report Generator |
+| [`dist/cro-analyst.skill`](./dist/cro-analyst.skill) | `/cro-analyst` — CRO Diagnostic + Prescriptive Analyst |
 | [`dist/seo-analyst.skill`](./dist/seo-analyst.skill) | `/seo-analyst` — SEO Traffic Analyst |
 
 ### Bước 3 — Import vào Claude Code
@@ -35,10 +36,10 @@ Vào thư mục [`dist/`](./dist/) và tải file `.skill` của skill bạn mu�
 ### Bước 4 — Thứ tự cài đặt khuyến nghị
 
 ```
-/cro-setup  →  /cro-report  →  /seo-analyst
+/cro-setup  →  /cro-report  →  /cro-analyst  →  /seo-analyst
 ```
 
-`/cro-report` reuse OAuth + profiles của `/cro-setup` → setup 1 lần dùng cho cả 2.
+`/cro-report` và `/cro-analyst` reuse OAuth + profiles của `/cro-setup` → setup 1 lần dùng chung cả 3.
 
 ### Bước 5 — Chạy lần đầu
 
@@ -73,6 +74,19 @@ Sinh báo cáo HTML self-contained từ GA4 data. Mở trong browser, filter t�
 
 ---
 
+### [/cro-analyst](./cro-analyst/) — CRO Diagnostic + Prescriptive Analyst
+
+Lớp **chẩn đoán + đề xuất** — trả lời "tại sao?" và "nên làm gì?" thay vì chỉ hiển thị số.
+
+- 5 analyzers: funnel bottleneck, form triage, failure postmortem, channel ROI, anomaly detection
+- Health score 0-100 + top 3 issues + top 3 opportunities
+- Natural-language Q&A tiếng Việt
+- Reuse OAuth + profiles của `/cro-setup` — zero setup nếu đã có
+
+**Yêu cầu:** Đã cài `/cro-setup` (recommended) hoặc Viewer access GA4 property
+
+---
+
 ### [/seo-analyst](./seo-analyst/) — SEO Traffic Analyst
 
 Phân tích traffic GA4 + GSC theo chiều sâu. Hỏi bằng ngôn ngữ tự nhiên.
@@ -93,8 +107,10 @@ claude-skills/
 ├── dist/                  # File .skill — tải về và import vào Claude Code
 │   ├── cro-setup.skill
 │   ├── cro-report.skill
+│   ├── cro-analyst.skill
 │   └── seo-analyst.skill
 ├── cro-setup/             # Source code + hướng dẫn chi tiết
 ├── cro-report/
+├── cro-analyst/
 └── seo-analyst/
 ```
