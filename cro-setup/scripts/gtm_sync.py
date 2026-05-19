@@ -60,7 +60,7 @@ EVENT_PARAM_MAPPING = [
     ("cro_thank_you_path", "{{DL - cro_thank_you_path}}"),
 ]
 
-CRO_EVENT_REGEX = "conversion_success|conversion_attempt_failed|form_interaction"
+CRO_EVENT_REGEX = "conversion_success|conversion_attempt_failed|form_interaction|funnel_step"
 ALL_PAGES_BUILTIN_TRIGGER_ID = "2147479553"  # GTM magic constant
 
 

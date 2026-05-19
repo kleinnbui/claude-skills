@@ -288,19 +288,33 @@ d. AskUserQuestion: *"Thêm form nữa?"*. Loop tới khi user dừng.
 
 ### Step 3 — Other conversions (lặp)
 
-AskUserQuestion: *"Có sự kiện khác cần đo (gọi điện, Zalo/Messenger, button CTA, view thank-you page...)?"*.
+AskUserQuestion: *"Có sự kiện khác cần đo (gọi điện, Zalo/Messenger, nút bật popup form, nút mở chat, view thank-you page...)?"*.
 
 Nếu có, lặp:
 
-a. **Tên** (snake_case): vd `phone_click`, `zalo_click`.
-b. **Trigger type** (6 options):
+a. **Tên** (snake_case): vd `phone_click`, `zalo_click`, `booking_popup_open`.
+b. **Trigger type** (8 options):
    - `url_contains` — Link có href chứa pattern (vd `tel:`, `mailto:`, `zalo.me`)
    - `text_contains` — Element có text chứa pattern (vd `Chat Zalo`, `Messenger`)
    - `click_class` — Click element có class chứa pattern (vd `cta-buy`)
    - `page_url_contains` — Page-view khi URL chứa pattern (vd `/cam-on`)
    - `data_attribute` — Click element có data-* attribute khớp (vd `data-test-id=chat-send-button`)
    - `hubspot_chat` — HubSpot Chat widget, detect qua `HubSpotConversations.on('conversationStarted')`. **Không cần pattern.**
-c. **Pattern**: text user nhập. Bỏ qua nếu `hubspot_chat`.
+   - `popup_open` — Click nút bật popup/modal chứa form → fire **`funnel_step`**. Pattern = CSS selector của nút (vd `.btn-booking`, `[data-modal="contact"]`). Hỏi thêm `linkedFormId` (xem mục d) để bật fail detection.
+   - `chat_open` — Click mở chat widget → fire **`funnel_step`**. Pattern = `hubspot` (tự detect fail qua `widgetClose` API) hoặc CSS selector nút chat (vd `.tawk-button`).
+c. **Pattern**: text user nhập. Bỏ qua nếu `hubspot_chat`. Với `popup_open`: CSS selector nút bật popup. Với `chat_open`: nhập `hubspot` hoặc CSS selector nút chat.
+
+d. **linkedFormId** (chỉ hỏi khi triggerType = `popup_open`):
+
+AskUserQuestion: *"Form nào nằm trong popup này? Nhập conversionId của form đó (vd booking_form) để engine tự detect fail khi user không submit. Để trống nếu không cần."*
+
+Lưu vào `linkedFormId` trong JSON config của other item đó.
+
+> **Fail detection tự động sau khi apply:**
+> - `popup_open` + `linkedFormId`: engine watch `conversion_success` của form linked qua pub-sub nội bộ. Nếu không thấy trong 15 phút → `conversion_attempt_failed (popup_no_submit)`.
+> - `chat_open (hubspot)`: `widgetOpen` → set attempt; `widgetClose` mà chưa có `conversationStarted` → `conversion_attempt_failed (chat_closed_no_message)`.
+> - Form bất kỳ (`dom_change`/`cf7_class`): user focus vào field rồi rời form (không submit) → sau 10 giây → `conversion_attempt_failed (form_abandoned)`. Không fire nếu đang trong lúc watch success (submit đã click).
+> - Tất cả fail đều vào `conversion_attempt_failed` — đã có trong GTM trigger regex, GA4 capture tự động.
 
 Loop.
 

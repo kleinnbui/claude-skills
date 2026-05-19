@@ -1,4 +1,4 @@
-"""Generate CRO Engine v2.5 JS code for [CRO] Journey Tracker GTM tag.
+"""Generate CRO Engine v2.6 JS code for [CRO] Journey Tracker GTM tag.
 
 Mirrors generateEngineCode() in cro-wizard.html:1072-1769 — feed in the same
 wizard JSON config and emit the same <script> output.
@@ -208,6 +208,35 @@ def _build_extras(forms: list[dict], others: list[dict]) -> str:
                 f"        eventSuccess: 'conversion_success'\n"
                 "      }"
             )
+        elif t == "popup_open":
+            linked = _esc(o.get("linkedFormId", ""))
+            fail_lines = (
+                f"        eventFailed:    'conversion_attempt_failed',\n"
+                f"        linkedFormId:   '{linked}',\n"
+            ) if linked else ""
+            extras.append(
+                "      {\n"
+                f"        conversionId:   '{name}',\n"
+                f"        triggerType:    'popup_open',\n"
+                f"        buttonSelector: '{pat}',\n"
+                f"{fail_lines}"
+                f"        eventSuccess:   'funnel_step'\n"
+                "      }"
+            )
+        elif t == "chat_open":
+            chat_type = "hubspot" if pat.lower() == "hubspot" else "generic"
+            btn_sel = "" if chat_type == "hubspot" else pat
+            fail_line = "        eventFailed:    'conversion_attempt_failed',\n" if chat_type == "hubspot" else ""
+            extras.append(
+                "      {\n"
+                f"        conversionId:   '{name}',\n"
+                f"        triggerType:    'chat_open',\n"
+                f"        chatType:       '{chat_type}',\n"
+                f"        buttonSelector: '{btn_sel}',\n"
+                f"{fail_line}"
+                f"        eventSuccess:   'funnel_step'\n"
+                "      }"
+            )
 
     if not extras:
         return ""
@@ -258,6 +287,10 @@ _ENGINE_RUNTIME = r"""
 
     var JOURNEY_KEY = 'cro_journey';
     var log = GLOBAL.debug ? function(id, msg, data) { console.log('[CRO:' + (id || 'core') + ']', msg, data !== undefined ? data : ''); } : function() {};
+
+    var _successListeners = {};
+    function onFormSuccess(formId, fn) { if (!formId) return; (_successListeners[formId] = _successListeners[formId] || []).push(fn); }
+    function notifyFormSuccess(formId) { var fns = _successListeners[formId] || []; for (var i = 0; i < fns.length; i++) { try { fns[i](); } catch(e) {} } }
 
     var OPTIONAL_PARAMS = ['cro_interaction','cro_fail_reason','cro_detection','cro_elapsed_ms','cro_success_selector','cro_cf7_class','cro_clicked_url','cro_clicked_text','cro_clicked_tag','cro_clicked_href','cro_clicked_class','cro_thank_you_path','cro_submission_guid','cro_timeout_ms'];
 
@@ -441,6 +474,7 @@ _ENGINE_RUNTIME = r"""
       if (extra) for (var k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) payload[k] = extra[k];
       window.dataLayer = window.dataLayer || [];
       window.dataLayer.push(payload);
+      if (eventName === 'conversion_success') notifyFormSuccess(cfg.conversionId || '');
       log(cfg.conversionId, 'Event → ' + eventName, payload);
     }
 
@@ -754,6 +788,81 @@ _ENGINE_RUNTIME = r"""
       }
     }
 
+    function bindPopupOpen(cfg) {
+      if (!cfg.buttonSelector) { log(cfg.conversionId, 'SKIP — buttonSelector missing'); return; }
+      checkStaleAttempt(cfg);
+      var failTimer = null;
+      function cancelFail() { if (failTimer) { clearTimeout(failTimer); failTimer = null; } clearAttempt(cfg.conversionId); }
+      if (cfg.linkedFormId) onFormSuccess(cfg.linkedFormId, cancelFail);
+      document.addEventListener('click', function(e) {
+        var el = e.target;
+        while (el && el !== document.body) {
+          if (el.matches && el.matches(cfg.buttonSelector)) {
+            if (getAttempt(cfg.conversionId)) return;
+            setAttempt(cfg.conversionId, encodeSlug(window.location.href));
+            if (cfg.eventFailed) {
+              if (failTimer) clearTimeout(failTimer);
+              failTimer = setTimeout(function() { failTimer = null; clearAttempt(cfg.conversionId); pushEvent(cfg, cfg.eventFailed, { cro_fail_reason: 'popup_no_submit' }); }, cfg.timeout || 900000);
+            }
+            pushEvent(cfg, cfg.eventSuccess, {
+              cro_interaction:  'popup_opened',
+              cro_clicked_tag:  el.tagName.toLowerCase(),
+              cro_clicked_text: ((el.innerText || el.textContent || '').trim()).slice(0, 80),
+              cro_clicked_href: (el.getAttribute && el.getAttribute('href')) || ''
+            });
+            return;
+          }
+          el = el.parentElement;
+        }
+      });
+      log(cfg.conversionId, 'popup_open bound:', cfg.buttonSelector, cfg.linkedFormId ? '→ fail-link:' + cfg.linkedFormId : '');
+    }
+
+    function bindChatOpen(cfg) {
+      if (cfg.chatType === 'hubspot') {
+        var attach = function(api) {
+          api.on('widgetOpen', function() {
+            setAttempt(cfg.conversionId, encodeSlug(window.location.href));
+            pushEvent(cfg, cfg.eventSuccess, {
+              cro_interaction:  'chat_opened',
+              cro_clicked_tag:  'iframe',
+              cro_clicked_text: 'hubspot_widget_opened'
+            });
+            log(cfg.conversionId, 'HubSpot widget opened');
+          });
+          api.on('widgetClose', function() {
+            var a = getAttempt(cfg.conversionId);
+            if (a && a.status === 'pending') { clearAttempt(cfg.conversionId); if (cfg.eventFailed) pushEvent(cfg, cfg.eventFailed, { cro_fail_reason: 'chat_closed_no_message' }); log(cfg.conversionId, 'HubSpot widget closed — no conversation'); }
+          });
+          api.on('conversationStarted', function() { clearAttempt(cfg.conversionId); log(cfg.conversionId, 'HubSpot conversation started — cancel fail'); });
+          log(cfg.conversionId, 'chat_open (hubspot) bound via widgetOpen/widgetClose/conversationStarted');
+        };
+        if (window.HubSpotConversations) {
+          attach(window.HubSpotConversations);
+        } else {
+          window.hsConversationsOnReady = window.hsConversationsOnReady || [];
+          window.hsConversationsOnReady.push(function() { attach(window.HubSpotConversations); });
+        }
+      } else if (cfg.buttonSelector) {
+        document.addEventListener('click', function(e) {
+          var el = e.target;
+          while (el && el !== document.body) {
+            if (el.matches && el.matches(cfg.buttonSelector)) {
+              pushEvent(cfg, cfg.eventSuccess, {
+                cro_interaction:   'chat_opened',
+                cro_clicked_tag:   el.tagName.toLowerCase(),
+                cro_clicked_text:  ((el.innerText || el.textContent || '').trim()).slice(0, 80),
+                cro_clicked_class: ((el.className && typeof el.className === 'string') ? el.className : (el.getAttribute && el.getAttribute('class')) || '').slice(0, 120)
+              });
+              return;
+            }
+            el = el.parentElement;
+          }
+        });
+        log(cfg.conversionId, 'chat_open (generic) bound:', cfg.buttonSelector);
+      }
+    }
+
     function trackFormInteraction(cfg) {
       if (!cfg.eventFormStart || !cfg.conversionSelector) return;
       var scope = document.querySelector(cfg.conversionSelector);
@@ -764,8 +873,9 @@ _ENGINE_RUNTIME = r"""
         var io = new IntersectionObserver(function(entries) { if (entries[0].isIntersecting) { pushEvent(cfg, cfg.eventFormStart, { cro_interaction: 'form_in_view' }); io.disconnect(); } }, { threshold: 0.2 });
         io.observe(form);
       }
-      form.addEventListener('focusin', function() { if (!started) { started = true; pushEvent(cfg, cfg.eventFormStart, { cro_interaction: 'form_focus' }); } }, { once: true });
-      form.addEventListener('focusout', function() { setTimeout(function() { if (started && !form.contains(document.activeElement)) pushEvent(cfg, cfg.eventFormStart, { cro_interaction: 'form_abandon' }); }, 200); });
+      var abandonTimer = null;
+      form.addEventListener('focusin', function() { if (!started) { started = true; pushEvent(cfg, cfg.eventFormStart, { cro_interaction: 'form_focus' }); } if (abandonTimer) { clearTimeout(abandonTimer); abandonTimer = null; } });
+      form.addEventListener('focusout', function() { abandonTimer = setTimeout(function() { abandonTimer = null; if (started && !form.contains(document.activeElement) && !getAttempt(cfg.conversionId)) { pushEvent(cfg, 'conversion_attempt_failed', { cro_fail_reason: 'form_abandoned', cro_interaction: 'form_abandon' }); } }, 10000); });
     }
 
     function initConversion(cfg) {
@@ -784,6 +894,8 @@ _ENGINE_RUNTIME = r"""
       if (type === 'page_url_contains') { bindPageUrlContains(cfg); return; }
       if (type === 'data_attribute') { bindDataAttribute(cfg); return; }
       if (type === 'hubspot_chat') { bindHubspotChat(cfg); return; }
+      if (type === 'popup_open') { bindPopupOpen(cfg); return; }
+      if (type === 'chat_open') { bindChatOpen(cfg); return; }
       if (type === 'thank_you_url') { bindThankYouUrl(cfg); return; }
       function onDomReady() {
         checkStaleAttempt(cfg);
@@ -804,7 +916,7 @@ _ENGINE_RUNTIME = r"""
       initABTests();
       var configs = Array.isArray(CRO_CONFIG) ? CRO_CONFIG : [CRO_CONFIG];
       configs.forEach(function(cfg) { try { initConversion(cfg); } catch(e) { if (GLOBAL.debug) console.error('[CRO] Error in', cfg.conversionId, e); } });
-      log(null, 'CRO Engine v2.5 started — ' + configs.length + ' config(s) loaded, ' + AB_TESTS.length + ' A/B test(s)');
+      log(null, 'CRO Engine v2.6 started — ' + configs.length + ' config(s) loaded, ' + AB_TESTS.length + ' A/B test(s)');
     }
 
     init();
@@ -832,7 +944,7 @@ def build_engine_html(config: dict) -> str:
 /**
  * ============================================================
  *  CRO TRACKING ENGINE — Custom HTML Tag for GTM
- *  Version: 2.5 — Expanded dimensions (Display, Device, Locale, Source, Behavior) + A/B Split
+ *  Version: 2.6 — Expanded dimensions + A/B Split + Funnel steps (popup_open, chat_open)
  *  Generated by /cro-setup for: {client_name}
  *  GTM Container: {gtm_id}
  * ============================================================
