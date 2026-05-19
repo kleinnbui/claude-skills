@@ -30,7 +30,8 @@ from datetime import datetime, timezone
 EVENT_SUCCESS = "conversion_success"
 EVENT_FAILED = "conversion_attempt_failed"
 EVENT_INTERACTION = "form_interaction"
-ALL_EVENTS = [EVENT_SUCCESS, EVENT_FAILED, EVENT_INTERACTION]
+EVENT_FUNNEL_STEP = "funnel_step"
+ALL_EVENTS = [EVENT_SUCCESS, EVENT_FAILED, EVENT_INTERACTION, EVENT_FUNNEL_STEP]
 
 
 def _client(creds):
@@ -61,6 +62,17 @@ def _event_eq_filter(event_name: str):
             string_filter=Filter.StringFilter(value=event_name),
         )
     )
+
+
+def _and_filter(event_filter):
+    """Passthrough — reserved for future filter composition.
+
+    To exclude GTM preview/debug events from GA4 reports (including Data API),
+    enable the built-in GA4 data filter instead:
+      GA4 Admin → Data Settings → Data Filters → Developer traffic → set to Active.
+    GA4 Data API does not expose 'debugMode' as a filterable dimension.
+    """
+    return event_filter
 
 
 def _short_error(e: Exception) -> str:
@@ -142,7 +154,7 @@ def fetch_all(creds, property_id: str, *, date_preset: str | None = None,
               dimensions=["date", "eventName"],
               metrics=["eventCount"],
               start_date=start, end_date=end,
-              filter_expr=_event_in_filter(ALL_EVENTS))
+              filter_expr=_and_filter(_event_in_filter(ALL_EVENTS)))
     q1, q1_err = _split_errors(q1)
     if q1_err:
         warnings.append(f"Timeline query: {q1_err}")
@@ -153,7 +165,7 @@ def fetch_all(creds, property_id: str, *, date_preset: str | None = None,
               metrics=["eventCount", "customEvent:cro_elapsed_ms", "customEvent:cro_journey_length",
                        "customEvent:cro_session_ms"],
               start_date=start, end_date=end,
-              filter_expr=_event_eq_filter(EVENT_SUCCESS))
+              filter_expr=_and_filter(_event_eq_filter(EVENT_SUCCESS)))
     q2, q2_err = _split_errors(q2)
     if q2_err:
         warnings.append(f"Per-form success query: {q2_err}")
@@ -162,7 +174,7 @@ def fetch_all(creds, property_id: str, *, date_preset: str | None = None,
               dimensions=["date", "customEvent:cro_conversion_id", "customEvent:cro_fail_reason"],
               metrics=["eventCount"],
               start_date=start, end_date=end,
-              filter_expr=_event_eq_filter(EVENT_FAILED))
+              filter_expr=_and_filter(_event_eq_filter(EVENT_FAILED)))
     q3, q3_err = _split_errors(q3)
     if q3_err:
         warnings.append(f"Per-form fail query: {q3_err}")
@@ -171,7 +183,7 @@ def fetch_all(creds, property_id: str, *, date_preset: str | None = None,
               dimensions=["date", "customEvent:cro_conversion_id", "customEvent:cro_interaction"],
               metrics=["eventCount"],
               start_date=start, end_date=end,
-              filter_expr=_event_eq_filter(EVENT_INTERACTION))
+              filter_expr=_and_filter(_event_eq_filter(EVENT_INTERACTION)))
     q4, q4_err = _split_errors(q4)
     if q4_err:
         warnings.append(f"Per-form interaction query: {q4_err}")
@@ -188,7 +200,7 @@ def fetch_all(creds, property_id: str, *, date_preset: str | None = None,
               ],
               metrics=["eventCount", "customEvent:cro_journey_length"],
               start_date=start, end_date=end,
-              filter_expr=_event_eq_filter(EVENT_SUCCESS))
+              filter_expr=_and_filter(_event_eq_filter(EVENT_SUCCESS)))
     q5, q5_err = _split_errors(q5)
     if q5_err:
         warnings.append(f"Journey patterns query: {q5_err}")
@@ -199,7 +211,7 @@ def fetch_all(creds, property_id: str, *, date_preset: str | None = None,
                           "deviceCategory", "operatingSystem", "screenResolution"],
               metrics=["eventCount"],
               start_date=start, end_date=end,
-              filter_expr=_event_eq_filter(EVENT_SUCCESS))
+              filter_expr=_and_filter(_event_eq_filter(EVENT_SUCCESS)))
     q6, q6_err = _split_errors(q6)
     if q6_err:
         warnings.append(f"Device query: {q6_err}")
@@ -209,7 +221,7 @@ def fetch_all(creds, property_id: str, *, date_preset: str | None = None,
               dimensions=["date", "customEvent:cro_conversion_id", "region", "city"],
               metrics=["eventCount"],
               start_date=start, end_date=end,
-              filter_expr=_event_eq_filter(EVENT_SUCCESS))
+              filter_expr=_and_filter(_event_eq_filter(EVENT_SUCCESS)))
     q7, q7_err = _split_errors(q7)
     if q7_err:
         warnings.append(f"Geo query: {q7_err}")
@@ -221,7 +233,7 @@ def fetch_all(creds, property_id: str, *, date_preset: str | None = None,
                           "sessionSource", "sessionMedium", "sessionCampaignName"],
               metrics=["eventCount"],
               start_date=start, end_date=end,
-              filter_expr=_event_eq_filter(EVENT_SUCCESS))
+              filter_expr=_and_filter(_event_eq_filter(EVENT_SUCCESS)))
     q8, q8_err = _split_errors(q8)
     if q8_err:
         warnings.append(f"Source query: {q8_err}")
@@ -232,7 +244,7 @@ def fetch_all(creds, property_id: str, *, date_preset: str | None = None,
                           "dayOfWeekName", "hour"],
               metrics=["eventCount"],
               start_date=start, end_date=end,
-              filter_expr=_event_eq_filter(EVENT_SUCCESS))
+              filter_expr=_and_filter(_event_eq_filter(EVENT_SUCCESS)))
     q9, q9_err = _split_errors(q9)
     if q9_err:
         warnings.append(f"Time query: {q9_err}")
@@ -243,7 +255,7 @@ def fetch_all(creds, property_id: str, *, date_preset: str | None = None,
                            "newVsReturning", "browser"],
                metrics=["eventCount"],
                start_date=start, end_date=end,
-               filter_expr=_event_eq_filter(EVENT_SUCCESS))
+               filter_expr=_and_filter(_event_eq_filter(EVENT_SUCCESS)))
     q10, q10_err = _split_errors(q10)
     if q10_err:
         warnings.append(f"User segment query: {q10_err}")
@@ -294,6 +306,17 @@ def fetch_all(creds, property_id: str, *, date_preset: str | None = None,
     if q15_err:
         warnings.append(f"Segment sessions query: {q15_err}")
 
+    # Query funnel: funnel_step events (popup_open, chat_open intent signals)
+    q_funnel = _run(client, property_id,
+                    dimensions=["date", "customEvent:cro_conversion_id",
+                                "customEvent:cro_interaction"],
+                    metrics=["eventCount"],
+                    start_date=start, end_date=end,
+                    filter_expr=_and_filter(_event_eq_filter(EVENT_FUNNEL_STEP)))
+    q_funnel, q_funnel_err = _split_errors(q_funnel)
+    if q_funnel_err:
+        warnings.append(f"Funnel step query: {q_funnel_err}")
+
     # Queries 16a/16b: previous period summary (same duration, immediately before)
     # Used for period-over-period KPI delta (±%)
     from datetime import timedelta as _td
@@ -315,7 +338,7 @@ def fetch_all(creds, property_id: str, *, date_preset: str | None = None,
                 dimensions=[],
                 metrics=["eventCount"],
                 start_date=_prev_start, end_date=_prev_end,
-                filter_expr=_event_eq_filter(EVENT_SUCCESS))
+                filter_expr=_and_filter(_event_eq_filter(EVENT_SUCCESS)))
     q16b, q16b_err = _split_errors(q16b)
     if q16b_err:
         warnings.append(f"Prev period conversions query: {q16b_err}")
@@ -323,7 +346,7 @@ def fetch_all(creds, property_id: str, *, date_preset: str | None = None,
     duration_ms = int((time.time() - t0) * 1000)
 
     aggregated = _shape_daily(q1, q2, q3, q4, q5, q6, q7, q8, q9, q10, q11, q12,
-                              q13, q14, q15)
+                              q13, q14, q15, q_funnel)
     aggregated["prev_summary"] = _prev_summary(q16a, q16b, _prev_start, _prev_end)
     aggregated["meta"] = {
         "property_id": property_id,
@@ -363,7 +386,7 @@ def _shape_daily(timeline_rows, success_rows, fail_rows, interaction_rows,
                  journey_rows, device_rows, geo_rows, source_rows, time_rows,
                  segment_rows, session_rows=None, channel_session_rows=None,
                  landing_session_rows=None, device_session_rows=None,
-                 segment_session_rows=None) -> dict:
+                 segment_session_rows=None, funnel_step_rows=None) -> dict:
     """Normalise raw GA4 rows into daily-row JSON the template aggregates client-side."""
     timeline_map: dict[str, dict] = {}
     for r in timeline_rows:
@@ -377,6 +400,7 @@ def _shape_daily(timeline_rows, success_rows, fail_rows, interaction_rows,
             EVENT_SUCCESS: 0,
             EVENT_FAILED: 0,
             EVENT_INTERACTION: 0,
+            EVENT_FUNNEL_STEP: 0,
         })
         bucket[evt] = bucket.get(evt, 0) + cnt
     timeline = sorted(timeline_map.values(), key=lambda x: x["date"])
@@ -590,11 +614,24 @@ def _shape_daily(timeline_rows, success_rows, fail_rows, interaction_rows,
             "sessions": int(r.get("sessions", 0) or 0),
         })
 
+    funnel_steps_daily = []
+    for r in (funnel_step_rows or []):
+        cnt = int(r.get("eventCount", 0) or 0)
+        if cnt <= 0:
+            continue
+        funnel_steps_daily.append({
+            "date": _norm_date(r.get("date", "")),
+            "conversion_id": r.get("customEvent:cro_conversion_id") or "(unnamed)",
+            "interaction": r.get("customEvent:cro_interaction") or "(unknown)",
+            "count": cnt,
+        })
+
     return {
         "timeline": timeline,
         "per_form_daily": per_form_daily,
         "failures_daily": failures_daily,
         "interactions_daily": interactions_daily,
+        "funnel_steps_daily": funnel_steps_daily,
         "journey_daily": journey_daily,
         "device_daily": device_daily,
         "geo_daily": geo_daily,
@@ -636,6 +673,7 @@ def _summary_from_daily(d: dict) -> dict:
 
     total_sessions = sum(r["sessions"] for r in d.get("sessions_daily", []))
     total_users = sum(r["users"] for r in d.get("sessions_daily", []))
+    total_funnel_steps = sum(r["count"] for r in d.get("funnel_steps_daily", []))
     site_cr = (total_success / total_sessions * 100) if total_sessions else 0
 
     avg_elapsed = (sum(f["elapsed_sum"] for f in forms.values()) / total_success) if total_success else 0
@@ -647,6 +685,7 @@ def _summary_from_daily(d: dict) -> dict:
         "total_conversions": total_success,
         "total_failed_attempts": total_fail,
         "total_interactions": total_interactions,
+        "total_funnel_steps": total_funnel_steps,
         "total_attempts": total_attempts,
         "site_conversion_rate_pct": round(site_cr, 2),
         "attempt_conversion_rate_pct": round(conv_rate, 1),

@@ -544,6 +544,29 @@ td .bar-cell .bar > div {
     </div>
   </section>
 
+  <!-- Funnel Steps (intent signals: popup opens, chat opens) -->
+  <section class="card" id="section-funnel-steps" style="display:none;">
+    <div class="card-head">
+      <div>
+        <div class="card-title"><span class="icon-tile" style="background: var(--orange-light); color: var(--orange);"><i class="fa-solid fa-arrow-trend-up"></i></span> Intent Signals — Funnel Steps</div>
+        <div class="card-subtitle">funnel_step events: popup_open, chat_open — clicks trước khi chuyển đổi</div>
+      </div>
+    </div>
+    <div class="table-wrap table-scroll" style="max-height: 320px;">
+      <table>
+        <thead>
+          <tr>
+            <th>Conversion ID</th>
+            <th>Interaction</th>
+            <th class="num">Clicks</th>
+            <th class="num">% of total</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-funnel-steps"></tbody>
+      </table>
+    </div>
+  </section>
+
   <!-- Journey patterns -->
   <section class="card">
     <div class="card-head">
@@ -905,6 +928,18 @@ function aggregateInteractions() {
   return [...byKey.values()].sort((a, b) => b.count - a.count);
 }
 
+function aggregateFunnelSteps() {
+  const fields = { lead: "conversion_id" };
+  const byKey = new Map();
+  for (const r of RAW.funnel_steps_daily || []) {
+    if (!matchFilters(r, fields)) continue;
+    const key = r.conversion_id + "||" + r.interaction;
+    const cur = byKey.get(key) || { conversion_id: r.conversion_id, interaction: r.interaction, count: 0 };
+    cur.count += r.count||0; byKey.set(key, cur);
+  }
+  return [...byKey.values()].sort((a, b) => b.count - a.count);
+}
+
 function aggregateJourney() {
   const fields = { lead: "conversion_id" };
   const byKey = new Map();
@@ -1088,8 +1123,8 @@ function aggregateSegmentSessions() {
 }
 
 // Cached
-let CUR_PER_FORM=[], CUR_FAILURES=[], CUR_INTERACTIONS=[], CUR_JOURNEY=[],
-    CUR_DEVICE=[], CUR_GEO=[], CUR_SOURCE=[], CUR_TIME=[], CUR_CHANNEL=[],
+let CUR_PER_FORM=[], CUR_FAILURES=[], CUR_INTERACTIONS=[], CUR_FUNNEL_STEPS=[],
+    CUR_JOURNEY=[], CUR_DEVICE=[], CUR_GEO=[], CUR_SOURCE=[], CUR_TIME=[], CUR_CHANNEL=[],
     CUR_SEGMENT={user_types:[],browsers:[]}, CUR_TIMELINE=[],
     CUR_SESSIONS={sessions:0, users:0},
     CUR_LANDING_PAGES=[],
@@ -1099,6 +1134,7 @@ function recomputeAll() {
   CUR_PER_FORM = aggregatePerForm();
   CUR_FAILURES = aggregateFailures();
   CUR_INTERACTIONS = aggregateInteractions();
+  CUR_FUNNEL_STEPS = aggregateFunnelSteps();
   CUR_JOURNEY = aggregateJourney();
   CUR_DEVICE = aggregateDevice();
   CUR_GEO = aggregateGeo();
@@ -1171,14 +1207,13 @@ function renderTimeline() {
     return s > 0 ? parseFloat((c / s * 100).toFixed(3)) : null;
   });
   const hasSessionData = crData.some(v => v !== null);
+  const hasFunnelSteps = tl.some(t => (t.funnel_step||0) > 0);
+  const legendItems = hasFunnelSteps
+    ? (hasSessionData ? ["Funnel Steps","Conversions","Failed","Interactions","Site CR%"] : ["Funnel Steps","Conversions","Failed","Interactions"])
+    : (hasSessionData ? ["Conversions","Failed","Interactions","Site CR%"] : ["Conversions","Failed","Interactions"]);
   timelineChart.setOption({
     tooltip: { trigger: "axis" },
-    legend: {
-      data: hasSessionData
-        ? ["Conversions","Failed","Interactions","Site CR%"]
-        : ["Conversions","Failed","Interactions"],
-      top: 0, textStyle: { fontSize: 11 },
-    },
+    legend: { data: legendItems, top: 0, textStyle: { fontSize: 11 } },
     grid: { left: 44, right: hasSessionData ? 60 : 20, top: 38, bottom: 30 },
     xAxis: { type: "category", data: tl.map(t => t.date), axisLabel: { fontSize: 10 } },
     yAxis: [
@@ -1190,6 +1225,10 @@ function renderTimeline() {
       } : null,
     ].filter(Boolean),
     series: [
+      ...(hasFunnelSteps ? [{
+        name: "Funnel Steps", type: "line", smooth: true, yAxisIndex: 0,
+        data: tl.map(t => t.funnel_step||0),
+        areaStyle: { opacity: 0.12 }, itemStyle: { color: "#BA7517" }, lineStyle: { width: 2, type: "dashed" } }] : []),
       { name: "Conversions", type: "line", smooth: true, yAxisIndex: 0,
         data: tl.map(t => t.conversion_success||0),
         areaStyle: { opacity: 0.18 }, itemStyle: { color: "#00A878" }, lineStyle: { width: 2 } },
@@ -1202,8 +1241,8 @@ function renderTimeline() {
       ...(hasSessionData ? [{
         name: "Site CR%", type: "line", smooth: true, yAxisIndex: 1,
         data: crData, symbol: "none",
-        lineStyle: { width: 2, type: "dashed", color: "#BA7517" },
-        itemStyle: { color: "#BA7517" },
+        lineStyle: { width: 2, type: "dashed", color: "#0099C8" },
+        itemStyle: { color: "#0099C8" },
       }] : []),
     ],
   }, true);
@@ -1216,12 +1255,14 @@ function renderFunnel() {
   const totInt  = pf.reduce((s, f) => s + f.interactions, 0);
   const attempts = totSuc + totFail;
   const { sessions } = CUR_SESSIONS;
+  const totFunnelSteps = CUR_FUNNEL_STEPS.reduce((s, r) => s + r.count, 0);
 
   const allSteps = [
-    { label: "Sessions",     value: sessions, cf: "#6B7280", ct: "#4B5563" },
-    { label: "Interactions", value: totInt,   cf: "#4B1EF7", ct: "#3C3489" },
-    { label: "Attempts",     value: attempts, cf: "#0099C8", ct: "#007DA8" },
-    { label: "Conversions",  value: totSuc,   cf: "#00A878", ct: "#008960" },
+    { label: "Sessions",     value: sessions,       cf: "#6B7280", ct: "#4B5563" },
+    ...(totFunnelSteps > 0 ? [{ label: "Funnel Steps", value: totFunnelSteps, cf: "#BA7517", ct: "#9A6010" }] : []),
+    { label: "Interactions", value: totInt,         cf: "#4B1EF7", ct: "#3C3489" },
+    { label: "Attempts",     value: attempts,       cf: "#0099C8", ct: "#007DA8" },
+    { label: "Conversions",  value: totSuc,         cf: "#00A878", ct: "#008960" },
   ];
   const steps = allSteps.filter(s => s.value > 0);
   const el = document.getElementById("chart-funnel");
@@ -1349,6 +1390,24 @@ function renderInteractions() {
       <td style="font-size: 12px;">${escapeHtml(i.interaction)}</td>
       <td><span class="pill pill-primary">${escapeHtml(i.conversion_id)}</span></td>
       <td class="num">${i.count.toLocaleString()}</td>
+    </tr>
+  `).join("");
+}
+
+function renderFunnelSteps() {
+  const items = CUR_FUNNEL_STEPS;
+  const section = document.getElementById("section-funnel-steps");
+  if (section) section.style.display = items.length ? "" : "none";
+  const tbody = document.getElementById("tbody-funnel-steps");
+  if (!tbody) return;
+  if (!items.length) { tbody.innerHTML = emptyRow(4); return; }
+  const total = items.reduce((s, i) => s + i.count, 0);
+  tbody.innerHTML = items.map(i => `
+    <tr>
+      <td><span class="pill pill-primary">${escapeHtml(i.conversion_id)}</span></td>
+      <td><span class="pill pill-neutral" style="background:var(--orange-light);color:var(--orange);">${escapeHtml(i.interaction)}</span></td>
+      <td class="num" style="font-weight:600;">${i.count.toLocaleString()}</td>
+      <td class="num" style="color:var(--gray-3);">${total ? (i.count/total*100).toFixed(1)+"%" : "—"}</td>
     </tr>
   `).join("");
 }
@@ -1798,7 +1857,7 @@ function emptyRow(cols) {
 // ── Render all ────────────────────────────────────────────────────────────
 function renderAll() {
   renderKpi(); renderTimeline(); renderFunnel();
-  renderPerFormTable(); renderFailures(); renderInteractions();
+  renderPerFormTable(); renderFailures(); renderInteractions(); renderFunnelSteps();
   renderJourney(); renderLandingPages();
   renderDevice(); renderGeo(); renderChannel(); renderSource();
   renderHeatmap(); renderUserSegment();
