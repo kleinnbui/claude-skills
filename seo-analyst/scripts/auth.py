@@ -47,7 +47,9 @@ def load_credentials(cred_path: str, scopes: list | None = None):
         from google.oauth2.credentials import Credentials
         from google.auth.transport.requests import Request
 
-        creds = Credentials.from_authorized_user_file(cred_path, scopes)
+        # Use stored scopes to avoid invalid_scope when granted scopes differ from requested
+        effective_scopes = data.get("scopes") or scopes
+        creds = Credentials.from_authorized_user_file(cred_path, effective_scopes)
         if creds.expired and creds.refresh_token:
             creds.refresh(Request())
             _save_token(cred_path, creds)
@@ -66,9 +68,11 @@ def _save_token(path: str, creds) -> None:
 # ── OAuth client helpers ─────────────────────────────────────────────────────
 
 def _get_oauth_client_config() -> dict:
-    from config import _load_accounts, _resolve_path
+    from config import _load_accounts, _resolve_path, SKILL_DIR
     accounts = _load_accounts()
     raw = accounts.get("oauth_client")
+    if not raw and (SKILL_DIR / "oauth_client.json").exists():
+        raw = "oauth_client.json"
     if not raw:
         raise ValueError(
             "OAuth client not configured.\n"
@@ -95,7 +99,7 @@ def generate_auth_url(profile_name: str) -> dict:
         state=state,
     )
 
-    # Save state for complete_auth step
+    # Save state + PKCE code_verifier for complete_auth step
     pending_path = SKILL_DIR / "credentials" / f".{profile_name}_pending.json"
     pending_path.parent.mkdir(exist_ok=True)
     with open(pending_path, "w") as f:
@@ -103,6 +107,7 @@ def generate_auth_url(profile_name: str) -> dict:
             "state": state,
             "redirect_uri": _REDIRECT_URI,
             "client_config": client_config,
+            "code_verifier": flow.code_verifier,
         }, f)
 
     return {
@@ -147,6 +152,10 @@ def complete_auth(profile_name: str, redirect_url_or_code: str) -> str:
         redirect_uri=pending["redirect_uri"],
         state=pending["state"],
     )
+    # Restore PKCE code_verifier if it was used during auth URL generation
+    code_verifier = pending.get("code_verifier")
+    if code_verifier:
+        flow.code_verifier = code_verifier
     flow.fetch_token(code=code)
     creds = flow.credentials
 

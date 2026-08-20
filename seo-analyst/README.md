@@ -84,19 +84,19 @@ seo-analyst/
 cd ~/.claude/skills/seo-analyst
 
 # Xem danh sách sites
-.venv/bin/python manage_accounts.py list
+bash run.sh manage_accounts.py list
 
 # Cập nhật KPI tháng
-.venv/bin/python manage_accounts.py update --name myblog --kpi-target 5000 --kpi-source gsc
+bash run.sh manage_accounts.py update --name myblog --kpi-target 5000 --kpi-source gsc
 
 # Cập nhật brand keywords
-.venv/bin/python manage_accounts.py update --name myblog --brand-keywords "mybrand,my brand"
+bash run.sh manage_accounts.py update --name myblog --brand-keywords "mybrand,my brand"
 
 # Thêm URL vào watch list
-.venv/bin/python manage_accounts.py watchlist-add --name myblog --url "https://example.com/page/"
+bash run.sh manage_accounts.py watchlist-add --name myblog --url "https://example.com/page/"
 
 # Xóa site
-.venv/bin/python manage_accounts.py remove --name myblog
+bash run.sh manage_accounts.py remove --name myblog
 ```
 
 ---

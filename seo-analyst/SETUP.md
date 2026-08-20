@@ -42,38 +42,47 @@ Vào [console.cloud.google.com](https://console.cloud.google.com) → chọn pro
 
 ```bash
 cd ~/.claude/skills/seo-analyst
-.venv/bin/python manage_accounts.py set-oauth-client ~/Downloads/client_secret_xxx.json
+bash run.sh manage_accounts.py set-oauth-client ~/Downloads/client_secret_xxx.json
 ```
 
 ### 1.4 Cài dependencies (nếu chưa)
 
 ```bash
-.venv/bin/pip install -r requirements.txt
+bash run.sh -m pip install -r requirements.txt
 ```
 
 ### 1.5 Share cho users
 
-Compress và share thư mục `~/.claude/skills/seo-analyst/` (đã có `oauth_client.json` bên trong).
-**Không share** thư mục `credentials/` — đó là token cá nhân của từng user.
+Đóng gói bằng `bash package.sh` (ở thư mục skill) → ra `seo-analyst.zip` đã kèm sẵn `oauth_client.json`
+và đã loại `.venv`, `accounts.json`, `credentials/*.json`. Gửi đúng 1 file zip đó cho user.
+
+Nhớ add email từng user vào **OAuth consent screen → Test users** trong GCP, nếu không họ sẽ dính
+`Access blocked` ngay lần auth đầu.
 
 ---
 
-## Bước 2 — Mỗi user: Auth 1 lần
+## Bước 2 — Mỗi user: giải nén + auth 1 lần
 
-```bash
-cd ~/.claude/skills/seo-analyst
-.venv/bin/python manage_accounts.py auth
-```
+**Cài (không cần Terminal):** giải nén `seo-analyst.zip` vào thư mục skills của Claude Code, sao cho
+đường dẫn cuối là `~/.claude/skills/seo-analyst/SKILL.md`.
 
-Quá trình:
-1. Browser mở → đăng nhập bằng Google account có quyền GA4/GSC
-2. Approve quyền truy cập
-3. Script tự discover danh sách GA4 properties và GSC sites
-4. User chọn property/site muốn phân tích
-5. Nhập tên profile (vd: `blog-abc`)
-6. Profile được lưu, token được store tại `credentials/blog-abc.json`
+| Hệ điều hành | Thư mục cần giải nén vào |
+|--------------|--------------------------|
+| macOS / Linux | `~/.claude/skills/` |
+| Windows | `C:\Users\<tên-bạn>\.claude\skills\` |
 
-> Nếu có nhiều site, chạy `auth` nhiều lần với `--name` khác nhau mỗi lần.
+Yêu cầu chung: **Python 3.10 trở lên** (macOS mặc định chỉ có 3.9 — cài thêm từ python.org).
+Windows còn cần **Git for Windows** vì Claude Code Desktop chạy lệnh qua Git Bash.
+
+**Dùng:** mở Claude Code, gõ `/seo-analyst`. Lần đầu skill tự dựng `.venv`, cài thư viện, rồi
+đưa link đăng nhập Google. Các bước còn lại làm ngay trong chat:
+
+1. Mở link → đăng nhập Google account có quyền GA4/GSC → approve
+2. Copy URL `http://localhost:8765/...` trên address bar, paste lại vào chat
+3. Skill tự discover GA4 properties + GSC sites → chọn site → đặt tên profile
+4. Token lưu tại `credentials/<profile>.json`, chỉ nằm trên máy user
+
+> Có nhiều site thì lặp lại bước auth, mỗi lần một tên profile khác.
 
 ---
 
@@ -89,7 +98,7 @@ Nếu muốn phân tích theo nhóm chủ đề, tạo Google Sheet với format
 - Header dòng 1, cột `url` là bắt buộc
 - Các cột còn lại tùy đặt — skill tự detect và phân nhóm theo từng cột
 - Lấy Sheet ID từ URL: `docs.google.com/spreadsheets/d/**{ID}**/edit`
-- Thêm vào profile: `.venv/bin/python manage_accounts.py update --name blog-abc --sheet-id {ID}`
+- Thêm vào profile: `bash run.sh manage_accounts.py update --name blog-abc --sheet-id {ID}`
 
 ---
 
@@ -97,20 +106,20 @@ Nếu muốn phân tích theo nhóm chủ đề, tạo Google Sheet với format
 
 ```bash
 # Phân tích 30 ngày (default profile)
-.venv/bin/python scripts/main.py 30d
+bash run.sh scripts/main.py 30d
 
 # Chỉ định profile cụ thể
-.venv/bin/python scripts/main.py 30d --profile blog-abc
+bash run.sh scripts/main.py 30d --profile blog-abc
 
 # Hoặc đặt default rồi chạy không cần --profile
-.venv/bin/python manage_accounts.py default --name blog-abc
-.venv/bin/python scripts/main.py 30d
+bash run.sh manage_accounts.py default --name blog-abc
+bash run.sh scripts/main.py 30d
 
 # Xem danh sách profiles
-.venv/bin/python manage_accounts.py list
+bash run.sh manage_accounts.py list
 
 # Test kết nối
-.venv/bin/python manage_accounts.py test --name blog-abc
+bash run.sh manage_accounts.py test --name blog-abc
 ```
 
 ---

@@ -552,8 +552,8 @@ def analyze_position_distribution(
 def _diagnose_url_change(
     ga4_cur: dict, ga4_prev: dict,
     gsc_cur: dict, gsc_prev: dict,
-) -> tuple[str, str]:
-    """Return (diagnosis_label_vi, advice_vi) based on GA4 + GSC signal combination."""
+) -> dict:
+    """Return structured diagnosis: {code, signals}. Claude composes prose from this."""
     sessions_chg = (
         (ga4_cur["sessions"] - ga4_prev["sessions"]) / ga4_prev["sessions"]
         if ga4_prev.get("sessions") else 0
@@ -564,53 +564,49 @@ def _diagnose_url_change(
     imp_cur = gsc_cur.get("impressions", 0)
     imp_prev = gsc_prev.get("impressions", 0) if gsc_prev else 0
     imp_chg = (imp_cur - imp_prev) / imp_prev if imp_prev else 0
-    ctr_chg = gsc_cur.get("ctr", 0) - (gsc_prev.get("ctr", 0) if gsc_prev else 0)
+    ctr_cur = gsc_cur.get("ctr", 0)
+    ctr_prev = gsc_prev.get("ctr", 0) if gsc_prev else 0
+    ctr_chg = ctr_cur - ctr_prev
+
+    signals = {
+        "sessions_change_pct": round(sessions_chg * 100, 1),
+        "position_change": round(pos_chg, 2) if pos_prev else None,
+        "impressions_change_pct": round(imp_chg * 100, 1) if imp_prev else None,
+        "ctr_change_pp": round(ctr_chg * 100, 2) if ctr_prev else None,
+        "has_gsc_data": bool(gsc_cur or gsc_prev),
+    }
 
     growing = sessions_chg > 0.15
     declining = sessions_chg < -0.15
 
     if growing:
         if pos_prev and pos_chg < -2:
-            return (
-                "Ranking cải thiện",
-                "Tiếp tục build internal link và cập nhật nội dung định kỳ để giữ vị trí."
-            )
-        if imp_chg > 0.20:
-            return (
-                "Volume query tăng (có thể do trend hoặc mùa vụ)",
-                "Tận dụng momentum: bổ sung nội dung liên quan, build link khi topic đang hot."
-            )
-        if ctr_chg > 0.02:
-            return (
-                "CTR cải thiện (title/snippet tốt hơn)",
-                "Scale approach này sang các trang có CTR thấp tương tự."
-            )
-        return ("Traffic tăng — cần xem thêm GSC query detail", "Kiểm tra query mới nào đang drive traffic trang này.")
-
-    if declining:
+            code = "growing_position"
+        elif imp_chg > 0.20:
+            code = "growing_volume"
+        elif ctr_chg > 0.02:
+            code = "growing_ctr"
+        elif not signals["has_gsc_data"]:
+            code = "non_seo"
+        else:
+            code = "growing_other"
+    elif declining:
         if pos_prev and pos_chg > 2:
-            return (
-                "Ranking tụt — cần review và cải thiện content",
-                "Update nội dung theo search intent hiện tại, bổ sung E-E-A-T, kiểm tra internal links."
-            )
-        if imp_chg < -0.20:
-            return (
-                "Volume query giảm (trend hoặc mùa vụ)",
-                "Kiểm tra Google Trends để xác nhận. Nếu seasonal thì chờ; nếu dài hạn cân nhắc pivot topic."
-            )
-        if imp_chg >= -0.10 and ctr_chg < -0.02:
-            return (
-                "SERP features chiếm click (featured snippet / SGE / PAA)",
-                "Tối ưu title thêm CTA, hoặc chủ động target featured snippet để lấy lại vị trí."
-            )
-        if imp_chg > 0.10:
-            return (
-                "Intent mismatch — Google show nhiều hơn nhưng user không click",
-                "Review lại nội dung: người dùng đang tìm gì khác với những gì trang cung cấp."
-            )
-        return ("Traffic giảm — cần kiểm tra thêm", "Kiểm tra GSC Coverage, Core Web Vitals, và recent Google updates.")
+            code = "ranking_drop"
+        elif imp_chg < -0.20:
+            code = "impression_drop"
+        elif imp_chg >= -0.10 and ctr_chg < -0.02:
+            code = "ctr_drop"
+        elif imp_chg > 0.10:
+            code = "intent_drift"
+        elif not signals["has_gsc_data"]:
+            code = "non_seo"
+        else:
+            code = "declining_other"
+    else:
+        code = "stable"
 
-    return ("Ổn định", "")
+    return {"code": code, "signals": signals}
 
 
 def analyze_url_changes(
@@ -646,7 +642,7 @@ def analyze_url_changes(
 
         gsc_c = gsc_cur_idx.get(url, {})
         gsc_p = gsc_prev_idx.get(url, {})
-        diagnosis, advice = _diagnose_url_change(c, p, gsc_c, gsc_p)
+        diag = _diagnose_url_change(c, p, gsc_c, gsc_p)
         meta = idx.get(url, {})
 
         # Shorten URL to slug only
@@ -657,19 +653,12 @@ def analyze_url_changes(
             "sessions": c["sessions"],
             "prev_sessions": p["sessions"],
             "sessions_change_pct": round(sessions_chg * 100, 1),
-            "engaged_sessions": c.get("engaged_sessions", 0),
             "engagement_rate": c.get("engagement_rate", 0),
-            "avg_session_duration": c.get("avg_session_duration", 0),
             "clicks": gsc_c.get("clicks", 0),
             "impressions": gsc_c.get("impressions", 0),
             "position": gsc_c.get("position", 0),
-            "prev_position": gsc_p.get("position", 0) if gsc_p else None,
-            "position_change": round(
-                gsc_c.get("position", 0) - gsc_p.get("position", 0), 2
-            ) if gsc_p and gsc_c else None,
-            "ctr": gsc_c.get("ctr", 0),
-            "diagnosis": diagnosis,
-            "advice": advice,
+            "diagnosis_code": diag["code"],
+            "signals": diag["signals"],
             "topic": meta.get("topic", meta.get("group", "")),
         })
 
@@ -683,8 +672,8 @@ def analyze_url_changes(
     )
 
     if not full_mode:
-        growing = growing[:30]
-        declining = declining[:30]
+        growing = growing[:15]
+        declining = declining[:15]
 
     return {"growing": growing, "declining": declining}
 
@@ -756,31 +745,30 @@ def analyze_anomaly(gsc_daily: list[dict], threshold_pct: int = 30) -> dict:
     }
 
 
-def analyze_kpi(summary: dict, cfg: dict, period: str) -> dict | None:
-    """KPI tracking — only for monthly periods."""
-    kpi_cfg = cfg.get("kpi")
-    if not kpi_cfg or not kpi_cfg.get("monthly_target"):
-        return None
+def compute_kpi(
+    monthly_target: int,
+    current_total: int,
+    source: str = "gsc",
+    metric: str = "clicks",
+) -> dict:
+    """KPI math: compute pacing, gap, projection for the current calendar month.
 
+    Reusable from both cfg-based analyze_kpi() and ad-hoc --kpi flag in run_brief().
+    Uses today's calendar date for days_elapsed / days_in_month.
+    """
     import calendar
     today = date.today()
-    source = kpi_cfg.get("source", "gsc")
-    metric = kpi_cfg.get("metric", "clicks")
-    monthly_target = int(kpi_cfg["monthly_target"])
-
     days_in_month = calendar.monthrange(today.year, today.month)[1]
     days_elapsed = today.day
-    days_remaining = days_in_month - days_elapsed
+    days_remaining = max(days_in_month - days_elapsed, 0)
     daily_target = monthly_target / days_in_month
-
-    if source == "gsc":
-        current_total = summary.get("gsc_clicks", 0)
-    else:
-        current_total = summary.get("sessions", 0)
 
     current_daily_avg = current_total / days_elapsed if days_elapsed else 0
     projected_total = round(current_daily_avg * days_in_month)
     gap_daily = daily_target - current_daily_avg
+    needed_per_remaining = (
+        (monthly_target - current_total) / days_remaining if days_remaining > 0 else 0
+    )
 
     return {
         "monthly_target": monthly_target,
@@ -794,12 +782,28 @@ def analyze_kpi(summary: dict, cfg: dict, period: str) -> dict | None:
         "current_daily_avg": round(current_daily_avg, 1),
         "gap_daily": round(gap_daily, 1),
         "projected_total": projected_total,
-        "projected_vs_target_pct": round(projected_total / monthly_target * 100, 1),
+        "projected_vs_target_pct": round(projected_total / monthly_target * 100, 1) if monthly_target else 0,
         "on_track": current_daily_avg >= daily_target * 0.90,
-        "needed_per_remaining_day": round(
-            (monthly_target - current_total) / days_remaining, 1
-        ) if days_remaining > 0 else 0,
+        "needed_per_remaining_day": round(needed_per_remaining, 1),
     }
+
+
+def analyze_kpi(summary: dict, cfg: dict, period: str) -> dict | None:
+    """KPI tracking from profile config."""
+    kpi_cfg = cfg.get("kpi")
+    if not kpi_cfg or not kpi_cfg.get("monthly_target"):
+        return None
+
+    source = kpi_cfg.get("source", "gsc")
+    metric = kpi_cfg.get("metric", "clicks")
+    monthly_target = int(kpi_cfg["monthly_target"])
+
+    if source == "gsc":
+        current_total = summary.get("gsc_clicks", 0)
+    else:
+        current_total = summary.get("sessions", 0)
+
+    return compute_kpi(monthly_target, current_total, source=source, metric=metric)
 
 
 # ── Summary helpers ─────────────────────────────────────────────────────────
@@ -1093,6 +1097,207 @@ def quick_check(profile: str | None = None) -> dict:
     }
 
 
+# ── Brief dashboard (default first-load mode) ──────────────────────────────
+
+def _agg_gsc_daily(rows: list[dict]) -> dict:
+    clicks = sum(r["clicks"] for r in rows)
+    impressions = sum(r["impressions"] for r in rows)
+    return {
+        "clicks": clicks,
+        "impressions": impressions,
+        "ctr": round(clicks / impressions, 4) if impressions else 0,
+        "position": round(
+            sum(r["position"] * r["impressions"] for r in rows) / impressions, 2
+        ) if impressions else 0,
+    }
+
+
+def _agg_ga4_daily(rows: list[dict]) -> dict:
+    sessions = sum(r["sessions"] for r in rows)
+    users = sum(r["users"] for r in rows)
+    new_users = sum(r.get("new_users", 0) for r in rows)
+    engaged = sum(r.get("engaged_sessions", 0) for r in rows)
+    pageviews = sum(r.get("pageviews", 0) for r in rows)
+    return {
+        "sessions": sessions,
+        "users": users,
+        "new_users": new_users,
+        "pageviews": pageviews,
+        "engaged_sessions": engaged,
+        "engagement_rate": round(engaged / sessions, 4) if sessions else 0,
+    }
+
+
+def run_brief(
+    period: str = "7d",
+    source: str = "gsc",
+    profile: str | None = None,
+    kpi_override: int | None = None,
+    kpi_source: str | None = None,
+    include_24h: bool = True,
+) -> dict:
+    """Compact dashboard for first-load. <10KB JSON. Daily totals + delta + KPI + anomaly + optional 24h hourly."""
+    cfg = load_config(profile)
+    pname = cfg["_profile_name"]
+    period_days = _PERIOD_DAYS.get(period, 7)
+
+    today = date.today()
+    # Fetch wider window to allow sliding window + previous period + month-to-date for KPI
+    buffer_days = max(period_days * 2 + 5, 35)  # at least cover current month
+    fetch_start = (today - timedelta(days=buffer_days)).isoformat()
+    fetch_end = today.isoformat()
+
+    print(f"[{pname}] Brief {source.upper()} | period={period}", file=sys.stderr)
+
+    hourly = None
+    if source == "gsc":
+        with ThreadPoolExecutor(max_workers=2) as ex:
+            f_daily = ex.submit(fetch_gsc.by_date, fetch_start, fetch_end, profile=profile)
+            f_24h = ex.submit(fetch_gsc.by_hour_last_24h, profile=profile) if include_24h else None
+            daily = f_daily.result()
+            hourly = f_24h.result() if f_24h else None
+    elif source == "ga4":
+        daily = fetch_ga4.by_date(fetch_start, fetch_end, profile=profile)
+    else:
+        raise ValueError(f"Unknown source: {source} (must be gsc|ga4)")
+
+    if not daily:
+        return {
+            "generated_at": datetime.now().isoformat(),
+            "profile": pname, "source": source, "mode": "brief",
+            "error": "No data returned from API for the fetch window.",
+        }
+
+    # Normalize GA4 date format (YYYYMMDD → YYYY-MM-DD) for consistent comparison
+    if source == "ga4":
+        for r in daily:
+            d = r["date"]
+            if len(d) == 8 and d.isdigit():
+                r["date"] = f"{d[:4]}-{d[4:6]}-{d[6:8]}"
+
+    daily_sorted = sorted(daily, key=lambda x: x["date"])
+    metric_key = "clicks" if source == "gsc" else "sessions"
+
+    # Find last day with positive metric (most recent available data)
+    days_with_data = [d for d in daily_sorted if d.get(metric_key, 0) > 0]
+    if not days_with_data:
+        return {
+            "generated_at": datetime.now().isoformat(),
+            "profile": pname, "source": source, "mode": "brief",
+            "error": f"No {metric_key} > 0 in fetch window.",
+        }
+    end_date = days_with_data[-1]["date"]
+    end_dt = date.fromisoformat(end_date)
+    start_dt = end_dt - timedelta(days=period_days - 1)
+    prev_end_dt = start_dt - timedelta(days=1)
+    prev_start_dt = prev_end_dt - timedelta(days=period_days - 1)
+
+    def _in_range(d: dict, s: date, e: date) -> bool:
+        dt = date.fromisoformat(d["date"])
+        return s <= dt <= e
+
+    cur_days = [d for d in daily_sorted if _in_range(d, start_dt, end_dt)]
+    prev_days = [d for d in daily_sorted if _in_range(d, prev_start_dt, prev_end_dt)]
+
+    if source == "gsc":
+        cur_agg = _agg_gsc_daily(cur_days)
+        prev_agg = _agg_gsc_daily(prev_days)
+    else:
+        cur_agg = _agg_ga4_daily(cur_days)
+        prev_agg = _agg_ga4_daily(prev_days)
+
+    n_days = len(cur_days) or 1
+    counting_fields = {"clicks", "impressions", "sessions", "users", "new_users", "pageviews", "engaged_sessions"}
+    avg_per_day = {
+        k: round(v / n_days, 1)
+        for k, v in cur_agg.items()
+        if k in counting_fields
+    }
+
+    delta_pct = {}
+    for k, cv in cur_agg.items():
+        pv = prev_agg.get(k, 0)
+        if isinstance(cv, (int, float)) and pv:
+            delta_pct[k] = round((cv - pv) / pv * 100, 1)
+        else:
+            delta_pct[k] = None
+
+    # Anomaly check (GSC only — uses daily clicks/impressions)
+    anomaly = None
+    if source == "gsc":
+        anomaly_input = daily_sorted[-9:] if len(daily_sorted) >= 3 else daily_sorted
+        anomaly = analyze_anomaly(anomaly_input, cfg.get("anomaly_threshold_percent", 30))
+
+    # KPI: ad-hoc override OR from profile cfg
+    kpi_result = None
+    if kpi_override:
+        kpi_target = int(kpi_override)
+        ksrc = kpi_source or source
+    else:
+        kpi_cfg = cfg.get("kpi") or {}
+        kpi_target = int(kpi_cfg.get("monthly_target", 0)) or None
+        ksrc = kpi_cfg.get("source", source) if kpi_target else None
+
+    if kpi_target:
+        kmetric = "clicks" if ksrc == "gsc" else "sessions"
+        month_start_str = today.replace(day=1).isoformat()
+        today_str = today.isoformat()
+        month_rows = [d for d in daily_sorted if month_start_str <= d["date"] <= today_str]
+        month_total = sum(r.get(kmetric, 0) for r in month_rows)
+        kpi_result = compute_kpi(kpi_target, month_total, source=ksrc, metric=kmetric)
+        kpi_result["ad_hoc"] = bool(kpi_override)
+
+    # 24h hourly aggregation (GSC only)
+    last_24h_summary = None
+    if hourly:
+        total_c = sum(h["clicks"] for h in hourly)
+        total_i = sum(h["impressions"] for h in hourly)
+        last_24h_summary = {
+            "start_hour": hourly[0]["hour"],
+            "end_hour": hourly[-1]["hour"],
+            "total_clicks": total_c,
+            "total_impressions": total_i,
+            "ctr": round(total_c / total_i, 4) if total_i else 0,
+            "position": round(
+                sum(h["position"] * h["impressions"] for h in hourly) / total_i, 2
+            ) if total_i else 0,
+            "hourly": hourly,
+        }
+
+    # Keep small daily series for follow-up context (only the period + anomaly window)
+    series_start = min(start_dt, end_dt - timedelta(days=8))
+    series = [d for d in daily_sorted if date.fromisoformat(d["date"]) >= series_start]
+
+    return {
+        "generated_at": datetime.now().isoformat(),
+        "profile": pname,
+        "mode": "brief",
+        "source": source,
+        "period": {
+            "start": start_dt.isoformat(),
+            "end": end_dt.isoformat(),
+            "days": period_days,
+            "label": f"{period_days} ngày qua ({start_dt.strftime('%d/%m')} → {end_dt.strftime('%d/%m')})",
+        },
+        "previous_period": {
+            "start": prev_start_dt.isoformat(),
+            "end": prev_end_dt.isoformat(),
+        },
+        "current": cur_agg,
+        "previous": prev_agg,
+        "delta_pct": delta_pct,
+        "avg_per_day": avg_per_day,
+        "anomaly": anomaly,
+        "kpi": kpi_result,
+        "last_24h": last_24h_summary,
+        "daily_series": series,
+        "data_freshness": {
+            "latest_date_with_data": end_date,
+            "days_lag_from_today": (today - end_dt).days,
+        },
+    }
+
+
 # ── Drill-down by URL ───────────────────────────────────────────────────────
 
 def drill_down_url(
@@ -1207,9 +1412,31 @@ if __name__ == "__main__":
                         help="Batch: run quick analysis for all configured profiles")
     parser.add_argument("--export-sheet", dest="export_sheet", metavar="SHEET_ID",
                         help="Export results to this Google Sheet ID after analysis")
+    parser.add_argument("--brief", action="store_true",
+                        help="Brief dashboard (compact JSON for first-load): daily totals + delta + KPI + anomaly + optional 24h")
+    parser.add_argument("--source", choices=["gsc", "ga4"], default="gsc",
+                        help="Data source for brief mode (default: gsc)")
+    parser.add_argument("--last-24h", dest="last_24h", action="store_true",
+                        help="Force include GSC last-24h hourly data (brief mode auto-includes for GSC)")
+    parser.add_argument("--no-24h", dest="no_24h", action="store_true",
+                        help="Skip last-24h hourly fetch (faster brief)")
+    parser.add_argument("--kpi", type=int, metavar="N",
+                        help="Ad-hoc monthly KPI target (not persisted)")
+    parser.add_argument("--kpi-source", dest="kpi_source", choices=["gsc", "ga4"],
+                        help="Source for ad-hoc KPI (default: same as --source)")
     args = parser.parse_args()
 
-    if args.quick_check:
+    if args.brief:
+        include_24h = args.last_24h or (args.source == "gsc" and not args.no_24h)
+        result = run_brief(
+            period=args.period,
+            source=args.source,
+            profile=args.profile,
+            kpi_override=args.kpi,
+            kpi_source=args.kpi_source,
+            include_24h=include_24h,
+        )
+    elif args.quick_check:
         result = quick_check(profile=args.profile)
     elif args.drill_url:
         result = drill_down_url(args.drill_url, period=args.period, profile=args.profile)

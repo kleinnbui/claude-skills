@@ -142,6 +142,8 @@ def set_oauth_client(src_path: str | None = None,
 def get_oauth_client_info() -> dict:
     accounts = _load_accounts()
     raw = accounts.get("oauth_client")
+    if not raw and (SKILL_DIR / "oauth_client.json").exists():
+        raw = "oauth_client.json"
     if not raw:
         return {"configured": False}
     path = _resolve_path(raw)

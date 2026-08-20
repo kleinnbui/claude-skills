@@ -22,3 +22,5 @@ cro-setup/configs/*.json
 
 # Local state
 last_run.json
+
+!seo-analyst/oauth_client.json

@@ -124,13 +124,23 @@ def export_to_sheet(result: dict, sheet_id: str, profile: str | None = None) -> 
     url_changes = result.get("url_changes")
     if url_changes:
         hdrs = ["url", "sessions", "prev_sessions", "sessions_change_pct",
-                "clicks", "impressions", "position", "ctr", "diagnosis", "advice"]
+                "clicks", "impressions", "position", "diagnosis_code"]
+        # Flatten signals dict into separate cols for readability
+        def _flatten_url_change(row: dict) -> dict:
+            s = row.get("signals") or {}
+            return {
+                **{k: row.get(k) for k in hdrs},
+                "position_change": s.get("position_change"),
+                "impressions_change_pct": s.get("impressions_change_pct"),
+                "ctr_change_pp": s.get("ctr_change_pp"),
+            }
+        hdrs_full = hdrs + ["position_change", "impressions_change_pct", "ctr_change_pp"]
         ws = _ws(sh, "Growing URLs")
-        _write(ws, hdrs, url_changes.get("growing", []))
+        _write(ws, hdrs_full, [_flatten_url_change(r) for r in url_changes.get("growing", [])])
         print("[export] ✓ Growing URLs", file=sys.stderr)
 
         ws = _ws(sh, "Declining URLs")
-        _write(ws, hdrs, url_changes.get("declining", []))
+        _write(ws, hdrs_full, [_flatten_url_change(r) for r in url_changes.get("declining", [])])
         print("[export] ✓ Declining URLs", file=sys.stderr)
 
     # ── Query Analysis ─────────────────────────────────────────────────────────

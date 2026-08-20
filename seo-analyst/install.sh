@@ -5,43 +5,60 @@
 set -e
 
 SKILL_DIR="$HOME/.claude/skills/seo-analyst"
-CMD_DIR="$HOME/.claude/commands"
-SKILL_MD="$HOME/.claude/skills/seo-analyst.md"
 
 echo "=== SEO Analyst Skill — Installer ==="
 echo ""
 
 # 1. Tạo thư mục đích
 mkdir -p "$HOME/.claude/skills"
-mkdir -p "$CMD_DIR"
 
 # 2. Copy files vào đúng vị trí (nếu chạy từ ngoài thư mục skill)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ "$SCRIPT_DIR" != "$SKILL_DIR" ]; then
   echo "Copying skill files to $SKILL_DIR ..."
-  cp -r "$SCRIPT_DIR/." "$SKILL_DIR/"
-  # Copy skill instruction .md
-  if [ -f "$SCRIPT_DIR/../seo-analyst.md" ]; then
-    cp "$SCRIPT_DIR/../seo-analyst.md" "$SKILL_MD"
-  fi
+  mkdir -p "$SKILL_DIR"
+  cp -R "$SCRIPT_DIR/." "$SKILL_DIR/"
+  # SKILL.md do plugin cung cấp — không để bản sao thành skill trùng tên
+  rm -f "$SKILL_DIR/SKILL.md"
+  rm -rf "$SKILL_DIR/.claude-plugin"
 fi
 
-# 3. Tạo Python venv
+# 3. Tạo Python venv — bắt buộc >= 3.10 (code dùng cú pháp `str | None`)
 echo "Setting up Python environment..."
-if [ ! -d "$SKILL_DIR/.venv" ]; then
-  python3 -m venv "$SKILL_DIR/.venv"
+PY=""
+for c in python3.14 python3.13 python3.12 python3.11 python3.10 python3 python; do
+  command -v "$c" >/dev/null 2>&1 || continue
+  if "$c" -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)' 2>/dev/null; then PY="$c"; break; fi
+done
+if [ -z "$PY" ] && command -v py >/dev/null 2>&1; then
+  py -3 -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)' 2>/dev/null && PY="py -3"
+fi
+if [ -z "$PY" ]; then
+  echo "LỖI: không tìm thấy Python 3.10+. macOS mặc định chỉ có 3.9 — cài từ python.org hoặc 'brew install python@3.13' rồi chạy lại." >&2
+  exit 1
+fi
+echo "Dùng $PY ($($PY -V 2>&1))"
+VENVPY="$SKILL_DIR/.venv/bin/python"
+[ -x "$VENVPY" ] || VENVPY="$SKILL_DIR/.venv/Scripts/python.exe"
+if [ -x "$VENVPY" ]; then
+  "$VENVPY" -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)' 2>/dev/null || {
+    echo "venv cũ dùng Python < 3.10 — dựng lại."; rm -rf "$SKILL_DIR/.venv"; }
+fi
+if [ ! -x "$SKILL_DIR/.venv/bin/python" ] && [ ! -x "$SKILL_DIR/.venv/Scripts/python.exe" ]; then
+  $PY -m venv "$SKILL_DIR/.venv"
 fi
 
 # 4. Install dependencies
 echo "Installing dependencies..."
-"$SKILL_DIR/.venv/bin/pip" install --quiet --upgrade pip
-"$SKILL_DIR/.venv/bin/pip" install --quiet -r "$SKILL_DIR/requirements.txt"
+VPY="$SKILL_DIR/.venv/bin/python"
+[ -x "$VPY" ] || VPY="$SKILL_DIR/.venv/Scripts/python.exe"
+"$VPY" -m pip install --quiet --upgrade pip
+"$VPY" -m pip install --quiet -r "$SKILL_DIR/requirements.txt"
 
-# 5. Tạo symlink slash command
-if [ -L "$CMD_DIR/seo-analyst.md" ]; then
-  rm "$CMD_DIR/seo-analyst.md"
+# 5. Dọn symlink cũ trỏ vào file không còn tồn tại (bản cài đời trước)
+if [ -L "$HOME/.claude/commands/seo-analyst.md" ] && [ ! -e "$HOME/.claude/commands/seo-analyst.md" ]; then
+  rm -f "$HOME/.claude/commands/seo-analyst.md"
 fi
-ln -s "$SKILL_MD" "$CMD_DIR/seo-analyst.md"
 
 # 6. Tạo accounts.json trống nếu chưa có
 if [ ! -f "$SKILL_DIR/accounts.json" ]; then
@@ -51,10 +68,15 @@ fi
 echo ""
 echo "=== Cài đặt hoàn tất! ==="
 echo ""
-echo "Bước tiếp theo:"
-echo "  1. Lấy OAuth client JSON từ Google Cloud Console"
-echo "     (Desktop app, enable: GA4 Data API + GA4 Admin API + Search Console API + Sheets API)"
-echo "  2. Chạy lệnh sau để đăng ký OAuth client:"
-echo "     cd $SKILL_DIR && .venv/bin/python manage_accounts.py set-oauth-client ~/Downloads/client_secret.json"
-echo ""
-echo "  3. Gõ /seo-analyst trong Claude Code để bắt đầu!"
+if [ -f "$SKILL_DIR/oauth_client.json" ]; then
+  echo "OAuth client: đã có sẵn trong gói."
+  echo "Gõ /seo-analyst trong Claude Code để bắt đầu — sẽ tự mở trình duyệt cho bạn đăng nhập Google 1 lần."
+else
+  echo "Bước tiếp theo:"
+  echo "  1. Lấy OAuth client JSON từ Google Cloud Console"
+  echo "     (Desktop app, enable: GA4 Data API + GA4 Admin API + Search Console API + Sheets API)"
+  echo "  2. Chạy lệnh sau để đăng ký OAuth client:"
+  echo "     cd $SKILL_DIR && bash run.sh manage_accounts.py set-oauth-client ~/Downloads/client_secret.json"
+  echo ""
+  echo "  3. Gõ /seo-analyst trong Claude Code để bắt đầu!"
+fi

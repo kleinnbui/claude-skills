@@ -104,6 +104,38 @@ def by_country(start: str, end: str, limit: int = 20, profile: str | None = None
     )
 
 
+def by_hour_last_24h(profile: str | None = None) -> list[dict]:
+    """Fetch hourly data for the last 24 hours available.
+
+    Uses GSC API HOUR dimension + dataState=hourly_all. Request a 3-day window
+    to handle timezone offset, then return the most recent 24 hourly rows.
+    """
+    today = date.today()
+    start = (today - timedelta(days=2)).isoformat()
+    end = (today + timedelta(days=1)).isoformat()
+    body = {
+        "startDate": start,
+        "endDate": end,
+        "dimensions": ["HOUR"],
+        "dataState": "hourly_all",
+    }
+    rows = _query(body, profile)
+    parsed = sorted(
+        [
+            {
+                "hour": r["keys"][0],
+                "clicks": int(r["clicks"]),
+                "impressions": int(r["impressions"]),
+                "ctr": round(r["ctr"], 4),
+                "position": round(r["position"], 2),
+            }
+            for r in rows
+        ],
+        key=lambda x: x["hour"],
+    )
+    return parsed[-24:]
+
+
 def by_query_for_page(start: str, end: str, page_url: str, limit: int = 500, profile: str | None = None) -> list[dict]:
     """Get all queries driving traffic to a specific page URL."""
     rows = _query(

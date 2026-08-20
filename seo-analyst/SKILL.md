@@ -1,11 +1,13 @@
 ---
 name: seo-analyst
-description: Phân tích traffic GA4 + GSC — trend, content decay, CTR opportunity, keyword cannibalization, traffic tiềm năng. Multi-profile, OAuth2, zero Terminal setup.
+description: Phân tích traffic GA4 + GSC dạng brief — tách nguồn (chọn GSC hoặc GA4), trả lời 5 câu hỏi cốt lõi (delta, avg/ngày, KPI gap, anomaly, 24h hourly), drill-down theo intent (URL nào tụt, vì sao). Multi-profile, OAuth2.
 ---
 
 # SEO Traffic Analyst
 
-Phân tích traffic GA4 + GSC theo chiều sâu. **Yêu cầu Claude Code** (CLI hoặc desktop app) — không hoạt động trong Claude.ai web chat.
+Phân tích traffic GA4 + GSC dạng brief, ngắn, trực tiếp. **Yêu cầu Claude Code** — không hoạt động trong Claude.ai web chat.
+
+**Triết lý**: trả lời thẳng số liệu, không bịa. First-load = brief dashboard 5 câu hỏi. Drill-down theo intent. Không trình bày 13-section báo cáo trừ khi user yêu cầu "đầy đủ".
 
 ---
 
@@ -97,73 +99,67 @@ Every analysis session must produce:
 
 ## BƯỚC 0 — Kiểm tra cài đặt
 
-**Luôn chạy đầu tiên, trước mọi thứ khác.**
+**Luôn chạy đầu tiên, trước mọi thứ khác.** Lệnh dưới đây idempotent — lần đầu nó tự bootstrap, các lần sau chỉ mất ~1s.
 
 ```bash
-test -f ~/.claude/skills/seo-analyst/scripts/main.py && echo "INSTALLED" || echo "NOT_INSTALLED"
+DEST="$HOME/.claude/skills/seo-analyst"
+SRC=$(find "$HOME/.claude/plugins" -maxdepth 4 -type d -name seo-analyst 2>/dev/null | head -1)
+if [ ! -f "$DEST/scripts/main.py" ] && [ -n "$SRC" ] && [ "$SRC" != "$DEST" ]; then
+  mkdir -p "$DEST" && cp -R "$SRC/." "$DEST/" && rm -f "$DEST/SKILL.md" && rm -rf "$DEST/.claude-plugin"
+fi
+vpy() { for p in "$DEST/.venv/bin/python" "$DEST/.venv/Scripts/python.exe"; do
+          if [ -x "$p" ]; then printf '%s' "$p"; return 0; fi; done; return 1; }
+ok310() { "$@" -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)' 2>/dev/null; }
+if [ ! -f "$DEST/scripts/main.py" ]; then echo "NOT_INSTALLED"; else
+  V=$(vpy) || V=""
+  if [ -n "$V" ] && ! ok310 "$V"; then rm -rf "$DEST/.venv"; V=""; fi
+  PY=""
+  if [ -z "$V" ]; then
+    for c in python3.14 python3.13 python3.12 python3.11 python3.10 python3 python; do
+      if command -v "$c" >/dev/null 2>&1 && ok310 "$c"; then PY="$c"; break; fi
+    done
+    if [ -z "$PY" ] && command -v py >/dev/null 2>&1 && ok310 py -3; then PY="py -3"; fi
+    if [ -n "$PY" ]; then $PY -m venv "$DEST/.venv" 2>&1 | tail -2; V=$(vpy) || V=""; fi
+  fi
+  if [ -z "$V" ]; then
+    if [ -z "$PY" ]; then echo "NO_PYTHON310"; else echo "VENV_FAILED"; fi
+  else
+    "$V" -m pip install -q --disable-pip-version-check -r "$DEST/requirements.txt" 2>&1 | tail -3
+    test -f "$DEST/accounts.json" || echo '{"shared_credentials": null, "default": null, "profiles": {}}' > "$DEST/accounts.json"
+    if [ -n "$SRC" ] && [ "$SRC" != "$DEST" ] && [ ! -f "$DEST/oauth_client.json" ] && [ -f "$SRC/oauth_client.json" ]; then cp "$SRC/oauth_client.json" "$DEST/"; fi
+    echo "READY"
+  fi
+fi
 ```
 
-**Nếu output là `INSTALLED`** → tiếp tục Bước 1.
+Đọc dòng cuối của output:
 
-**Nếu output là `NOT_INSTALLED`** → báo user: *"Skill chưa được cài đầy đủ. Vui lòng import lại file `seo-analyst.skill` trong Claude Code (Settings → Skills → Upload)."* Dừng lại, không tiếp tục.
+- **`READY`** → tiếp tục Bước 1.
+- **`NOT_INSTALLED`** → báo user: *"Thiếu file chạy. Giải nén lại `seo-analyst.zip` vào thư mục `~/.claude/skills/` sao cho có `~/.claude/skills/seo-analyst/scripts/main.py`."* Dừng lại.
+- **`NO_PYTHON310`** → báo user: *"Máy chưa có Python 3.10 trở lên (macOS mặc định chỉ có 3.9, không chạy được skill này). Cài Python mới từ python.org hoặc `brew install python@3.13`, rồi gõ lại `/seo-analyst`."* Dừng lại.
+- **`VENV_FAILED`** → đọc output lỗi phía trên, báo nguyên văn cho user rồi dừng.
 
-Nếu đã `INSTALLED`, kiểm tra Python environment:
-
-```bash
-cd ~/.claude/skills/seo-analyst && .venv/bin/pip install -r requirements.txt -q 2>&1 | tail -3
-```
-
-Nếu output có lỗi → báo cho user: *"Python3 chưa được cài trên máy. Vui lòng cài Python 3.10+ từ python.org rồi thử lại."*
-
-Tạo accounts.json trống nếu chưa có:
-
-```bash
-test -f ~/.claude/skills/seo-analyst/accounts.json || echo '{"shared_credentials": null, "default": null, "profiles": {}}' > ~/.claude/skills/seo-analyst/accounts.json
-```
+> `.venv` cũ tạo bằng Python < 3.10 sẽ bị xoá và dựng lại tự động — code dùng cú pháp `str | None` nên 3.9 sẽ crash ngay ở `import config`.
 
 ---
 
 ## BƯỚC 1 — Lấy danh sách profiles
 
 ```bash
-cd ~/.claude/skills/seo-analyst && .venv/bin/python manage_accounts.py list 2>&1
+cd ~/.claude/skills/seo-analyst && bash run.sh manage_accounts.py list 2>&1
 ```
 
 Đọc output:
-- Nếu có lỗi **"OAuth client not configured"** → chuyển sang **Bước 1b**
+- Nếu có lỗi **"OAuth client not configured"** → skill không tìm thấy `oauth_client.json` trong thư mục của nó. Thử mượn từ `cro-setup` (chỉ có trên máy đã cài bộ CRO):
+  ```bash
+  cd ~/.claude/skills/seo-analyst && \
+  if [ -f "$HOME/.claude/skills/cro-setup/oauth_client.json" ]; then \
+    bash run.sh manage_accounts.py set-oauth-client "$HOME/.claude/skills/cro-setup/oauth_client.json" 2>&1; \
+  else echo "NO_OAUTH_CLIENT"; fi
+  ```
+  Nếu output là `NO_OAUTH_CLIENT` → báo user: *"Gói cài thiếu `oauth_client.json`. Liên hệ admin để lấy file OAuth client rồi đặt vào `~/.claude/skills/seo-analyst/`."* Dừng lại.
 - Nếu **không có profile nào** → chuyển thẳng sang **Bước 3b** (thêm mới)
 - Nếu **có profiles** → chuyển sang **Bước 2**
-
----
-
-## BƯỚC 1b — Setup OAuth Client (chỉ làm 1 lần duy nhất)
-
-Hiển thị hướng dẫn cho user:
-
-> **Bạn cần tạo OAuth Client ID trên Google Cloud Console (1 lần duy nhất):**
->
-> 1. Vào https://console.cloud.google.com/
-> 2. Tạo project mới (hoặc chọn project có sẵn)
-> 3. **APIs & Services → Library** — bật 4 API:
->    - Google Analytics Data API
->    - Google Analytics Admin API
->    - Google Search Console API
->    - Google Sheets API
-> 4. **APIs & Services → Credentials → Create Credentials → OAuth Client ID**
->    - Application type: **Desktop app**
->    - Tên tuỳ ý (vd: "SEO Analyst")
->    - Download file JSON → lưu vào `~/Downloads/client_secret.json`
-> 5. **OAuth consent screen → Test users** → thêm email Google của bạn
-
-Dùng AskUserQuestion hỏi: *"Bạn đã download file client_secret.json chưa?"*
-
-Khi user xác nhận, hỏi tiếp đường dẫn file (mặc định `~/Downloads/client_secret.json`), rồi chạy:
-
-```bash
-cd ~/.claude/skills/seo-analyst && .venv/bin/python manage_accounts.py set-oauth-client ~/Downloads/client_secret.json 2>&1
-```
-
-Sau đó quay lại **Bước 1**.
 
 ---
 
@@ -176,269 +172,218 @@ Dùng AskUserQuestion với options là tên các profiles từ Bước 1, thêm
 
 ---
 
-## BƯỚC 3b — Thêm tài khoản mới
+## BƯỚC 3b — Thêm site mới
 
-**3b-1. Hỏi tên profile (AskUserQuestion):**
-*"Đặt tên cho site này là gì? (vd: elitedental, myblog — không dấu cách)"*
+**3b-1.** AskUserQuestion: *"Website cần thêm là gì? (vd: elitedental.com.vn)"*
 
-**3b-2. Tạo OAuth URL:**
+Derive profile name: bỏ `https://`, `www.` → dùng domain.
 
-```bash
-cd ~/.claude/skills/seo-analyst && .venv/bin/python scripts/setup_flow.py auth-url --name PROFILE_NAME 2>&1
-```
-
-Parse JSON output, lấy `auth_url`. Hiển thị cho user:
-
-> **Bước đăng nhập Google:**
-> 1. Click link sau để đăng nhập: [auth_url]
-> 2. Đăng nhập bằng Google account có quyền GA4/GSC của site
-> 3. Sau khi đăng nhập, browser sẽ báo lỗi **"This site can't be reached"** — đó là bình thường
-> 4. **Copy toàn bộ URL** từ address bar (bắt đầu bằng `http://localhost:8765/...`)
-> 5. Paste URL đó vào đây
-
-Dùng AskUserQuestion hỏi: *"Paste URL từ address bar vào đây:"* (user nhập vào ô Other)
-
-**3b-3. Hoàn tất OAuth:**
+**3b-2. Scan credentials sẵn có:**
 
 ```bash
-cd ~/.claude/skills/seo-analyst && .venv/bin/python scripts/setup_flow.py auth-complete --name PROFILE_NAME --redirect-url "URL_USER_PASTE" 2>&1
+cd ~/.claude/skills/seo-analyst && bash run.sh scripts/setup_flow.py auto-save --name PROFILE_NAME --website WEBSITE 2>&1
 ```
 
-Parse JSON output: lấy `ga4_properties` và `gsc_sites`.
+- `ok: true` → hiển thị tóm tắt (GA4, GSC, credential dùng), chuyển **Bước 3b-4**
+- `ok: false, needs_oauth: true` → chưa có credential nào có quyền → **Bước 3b-3**
 
-**3b-4. Hỏi chọn GA4 property (AskUserQuestion):**
-- Nếu 1 property → chọn tự động
-- Nếu nhiều → hiển thị tối đa 4 options (format: *"Tên Property (ID: 123456)"*) + option "Nhập ID thủ công"
-- Nếu >4 → hiển thị 3 đầu tiên + "Nhập ID thủ công"
-
-**3b-5. Hỏi chọn GSC site (AskUserQuestion):**
-- Ưu tiên `https://` hơn `sc-domain:`
-- Tương tự: tối đa 4 + "Nhập URL thủ công"
-
-**3b-6. Hỏi Sheet ID (AskUserQuestion, optional):**
-*"Bạn có Google Sheet phân nhóm URL không? Nhập Sheet ID nếu có, bỏ qua nếu không."*
-(Sheet ID lấy từ URL: `docs.google.com/spreadsheets/d/**{ID}**/edit`)
-
-**3b-7. Hỏi KPI hàng tháng (AskUserQuestion, optional):**
-*"Bạn có KPI traffic hàng tháng không? Nếu có, nhập mục tiêu và nguồn đo."*
-Options:
-- "Có — tôi sẽ nhập" → hỏi tiếp: nguồn (GSC clicks / GA4 sessions), con số mục tiêu/tháng
-- "Chưa đặt KPI" → bỏ qua
-
-Nếu user nhập KPI, lưu qua lệnh:
+**3b-3. Đăng nhập Google account mới (chỉ khi scan thất bại):**
 
 ```bash
-cd ~/.claude/skills/seo-analyst && .venv/bin/python manage_accounts.py update --name PROFILE_NAME --kpi-target TARGET_NUMBER --kpi-source gsc 2>&1
+cd ~/.claude/skills/seo-analyst && bash run.sh scripts/setup_flow.py auth-url --name PROFILE_NAME 2>&1
 ```
 
-(thay `gsc` bằng `ga4` nếu user muốn đo sessions thay vì clicks)
+Hiển thị cho user:
+> 1. Click link: [auth_url]
+> 2. Đăng nhập Google account có quyền GA4 + GSC của site
+> 3. Browser báo "This site can't be reached" — bình thường
+> 4. Copy toàn bộ URL từ address bar (`http://localhost:8765/...`) → paste vào đây
 
-**3b-8. Hỏi brand keywords (AskUserQuestion, optional):**
-*"Tên thương hiệu / domain của site là gì? Dùng để tách branded vs non-branded queries."*
-- Nhập tên (vd: "elitedental", "elite dental") → lưu qua lệnh:
+AskUserQuestion: *"Paste URL từ address bar:"*
 
 ```bash
-cd ~/.claude/skills/seo-analyst && .venv/bin/python manage_accounts.py update --name PROFILE_NAME --brand-keywords "elitedental,elite dental" 2>&1
+cd ~/.claude/skills/seo-analyst && bash run.sh scripts/setup_flow.py auth-complete --name PROFILE_NAME --redirect-url "URL_USER_PASTE" 2>&1
+cd ~/.claude/skills/seo-analyst && bash run.sh scripts/setup_flow.py auto-save --name PROFILE_NAME --website WEBSITE 2>&1
 ```
 
-- "Bỏ qua" → không lưu
+Nếu vẫn không match → show `all_ga4`/`all_gsc` từ auth-complete, AskUserQuestion chọn thủ công → `save`.
 
-**3b-9. Lưu profile:**
+**3b-4. (Tuỳ chọn) KPI + brand keywords — hỏi gộp 1 lần:**
 
+Dùng AskUserQuestion hỏi đồng thời 2 câu:
+- *"KPI traffic hàng tháng? (vd: 5000 clicks GSC / 8000 sessions GA4 — bỏ qua nếu chưa đặt)"*
+- *"Tên thương hiệu để tách branded/non-branded? (vd: elitedental — bỏ qua nếu không cần)"*
+
+Nếu user nhập, chạy tuần tự (chỉ những cái có giá trị):
 ```bash
-cd ~/.claude/skills/seo-analyst && .venv/bin/python scripts/setup_flow.py save --name PROFILE_NAME --ga4-id GA4_ID --gsc-url GSC_URL --sheet-id SHEET_ID 2>&1
+cd ~/.claude/skills/seo-analyst && bash run.sh manage_accounts.py update --name PROFILE_NAME --kpi-target TARGET --kpi-source gsc 2>&1
+cd ~/.claude/skills/seo-analyst && bash run.sh manage_accounts.py update --name PROFILE_NAME --brand-keywords "KEYWORDS" 2>&1
 ```
 
-Thông báo thành công → **Bước 4**.
+Thông báo xong → **Bước 4**.
 
 ---
 
-## BƯỚC 4 — Chạy báo cáo tổng quan mặc định
+## BƯỚC 4 — Hỏi nguồn dữ liệu (AskUserQuestion)
 
-**Không hỏi gì thêm. Chạy luôn báo cáo tổng quan 30 ngày, mode quick, compare kỳ liền trước:**
+Sau khi chọn profile, hỏi user nguồn nào muốn xem trước:
+
+| Option | Mô tả |
+|--------|-------|
+| **GSC** (Recommended) | Clicks, impressions, CTR, position, query, page — đo hành vi trên Google Search |
+| **GA4** | Sessions, users, engagement, pageviews — đo hành vi trên site |
+
+Lưu source vào biến cho cả phiên. Default GSC nếu user skip. User có thể chuyển sau bằng câu "đổi sang GA4".
+
+---
+
+## BƯỚC 5 — First-load brief (KHÔNG hỏi gì thêm)
+
+Chạy LUÔN:
 
 ```bash
-cd ~/.claude/skills/seo-analyst && .venv/bin/python scripts/main.py 30d --mode quick --profile "PROFILE_NAME" 2>&1
+cd ~/.claude/skills/seo-analyst && bash run.sh scripts/main.py 7d --brief --source SOURCE --profile "PROFILE" 2>&1
 ```
 
-Đọc JSON output → trình bày theo **Quy trình phân tích chuẩn** bên dưới → kết thúc bằng **Block gợi ý follow-up**.
+(period mặc định `7d` = **7 ngày trượt từ ngày cuối có data** — KHÔNG phải calendar week. Trường `period.label` cho biết khoảng ngày chính xác.)
+
+Đọc JSON → render theo **BƯỚC 6** → append **block gợi ý follow-up** (BƯỚC 7).
 
 ---
 
-## BƯỚC 5 — Trình bày báo cáo tổng quan
+## BƯỚC 6 — Render brief (template cứng, không thêm thắt)
 
-Trả lời 26 câu hỏi cốt lõi theo thứ tự **Quy trình phân tích chuẩn**. Bỏ qua section nào không có dữ liệu (vd: KPI nếu chưa cài, Watch list nếu rỗng, Device/Country nếu không đáng chú ý).
+**Quy tắc render:** Bỏ qua dòng nào dữ liệu là null. KHÔNG bịa số. KHÔNG thêm section khác. KHÔNG thêm "Quy trình phân tích chuẩn" 13 sections.
 
-Cuối báo cáo, **luôn gắn block text gợi ý follow-up** (xem mục bên dưới).
+**Quy ước ngôn ngữ (BẮT BUỘC):**
+- **Giờ**: luôn convert sang GMT+7 (giờ Việt Nam). KHÔNG hiển thị "PDT/VN/GMT+7/UTC" — chỉ ghi giờ + ngày (vd: "15:00 17/05"). API GSC trả ISO 8601 với offset −07:00 → convert: GMT+7 = PDT + 14h.
+- **Tiếng Việt thuần** — không trộn từ Anh chuyên ngành. Được giữ tiếng Anh: `click`, `impression`, `session`, `CTR`. Phải dịch:
+  - peak → "cao nhất" / "đỉnh điểm"
+  - spike → "tăng vọt" / "nhảy vọt"
+  - intent drift → "lệch nhu cầu tìm kiếm"
+  - SERP feature → "tính năng SERP" (snippet, People Also Ask…)
+  - anomaly → "bất thường"
+  - alert → "cảnh báo"
+  - avg → "trung bình"
+  - position / Pos → "vị trí" hoặc "thứ hạng"
+  - on track → "đang đúng tiến độ"; off track → "trễ tiến độ"
+  - lead time → "thời gian phản ánh"
+
+**Số liệu trong câu giải thích:**
+- KHÔNG dùng định tính ("giảm nhẹ/mạnh", "tăng nhẹ", "ổn", "y nguyên", "tụt nhẹ"). Phải ghi số tuyệt đối + % trong ngoặc, vd: "impressions −2,545 (−10%)" thay vì "impressions giảm nhẹ".
+- Khi diễn giải nguyên nhân/lý do tụt-tăng, dẫn số cụ thể (impressions delta, vị trí trước→sau, CTR điểm thay đổi). Không suy diễn qua từ định tính.
+- Vị trí thay đổi: ghi rõ "vị trí 5.84 → 5.76" thay vì "vị trí tốt hơn".
+
+**Wording dấu (positive/negative) — KHÔNG được nhầm hướng:**
+- KPI / target / deadline / pace: nếu **xấu hơn target** → "thiếu / chậm / vượt deadline / không kịp / hụt". Nếu **tốt hơn target** → "đạt sớm / vượt target / dư / thừa".
+  - VD đúng: "Pace hiện tại 40.2 ngày để đạt 150k → **chậm 10 ngày so với target 30 ngày**" (KHÔNG ghi "dư 10 ngày" — "dư" hàm ý positive, ở đây là negative).
+  - VD đúng (positive): "Pace hiện tại 22 ngày để đạt 150k → **đạt sớm 8 ngày**" hoặc "dự kiến vượt target 8 ngày".
+- Gap số: "Gap −37,994 (−25.3%)" hoặc "thiếu 37,994 clicks (−25.3% so với target)". Không ghi "dư −37,994".
+- Số ngày còn lại trong tháng: "còn 18 ngày" (neutral), không phải "dư 18 ngày".
+- "vượt" CHỈ dùng theo nghĩa positive (vượt target, vượt KPI). Nếu là deadline → dùng "trễ" / "chậm" / "không kịp".
+- Cấm các từ tối nghĩa khác trong báo cáo: "sóng sáng vào việc", "trỗi dậy", "bứt tốc", "bùng nổ" (trừ khi user dùng trước). Mặc định ngôn ngữ analyst trung tính: tăng/giảm + số.
+
+```
+**[profile] — [SOURCE in upper case] | [period.label]**
+Data đến: [data_freshness.latest_date_with_data] (lag [days_lag_from_today] ngày từ today)
+
+[Nếu source=gsc:]
+Clicks: [current.clicks] (avg [avg_per_day.clicks]/ngày) | Δ vs 7 ngày trước: [delta_pct.clicks]%
+Impressions: [current.impressions] | Δ: [delta_pct.impressions]%
+CTR: [current.ctr*100]% (kỳ trước [previous.ctr*100]%)
+Position: [current.position] (kỳ trước [previous.position])
+
+[Nếu source=ga4:]
+Sessions: [current.sessions] (avg [avg_per_day.sessions]/ngày) | Δ: [delta_pct.sessions]%
+Users: [current.users] | New: [current.new_users] | Δ users: [delta_pct.users]%
+Engaged rate: [current.engagement_rate*100]% | Pageviews: [current.pageviews]
+
+[Nếu kpi != null:]
+**KPI tháng [today.month]:** target [kpi.monthly_target] [kpi.metric]
+- Đã đạt [kpi.current_total] (ngày [kpi.days_elapsed]/[kpi.days_in_month])
+- Avg hiện tại: [kpi.current_daily_avg]/ngày (cần [kpi.daily_target]/ngày)
+- Cần bù [kpi.needed_per_remaining_day]/ngày trong [kpi.days_remaining] ngày còn lại
+- Dự báo cuối tháng: [kpi.projected_total] ([kpi.projected_vs_target_pct]% target) → [on_track ? "On track" : "Off track"]
+
+[Nếu kpi == null:]
+KPI: chưa cài. Set bằng câu: "KPI [N] clicks/tháng" (hoặc "sessions/tháng" cho GA4)
+
+[Nếu source=gsc và anomaly.status == "anomaly":]
+**Bất thường ngày [anomaly.most_recent_date]:** [render alerts một dòng mỗi cái]
+
+[Nếu source=gsc và last_24h != null:]
+**24h gần nhất ([last_24h.start_hour HH:MM dd/MM] → [last_24h.end_hour HH:MM dd/MM]):**
+[last_24h.total_clicks] clicks | [last_24h.total_impressions] impressions | CTR [last_24h.ctr*100]% | Pos [last_24h.position]
+[Nếu pattern hourly có biến động >50% giữa 2 giờ liền kề: note 1 dòng "Spike/Drop tại giờ X"]
+```
+
+**KHÔNG render** các bảng URLs/queries/decay/CTR opps/cannibalization trong first-load. Chỉ append khi user hỏi tiếp.
 
 ---
 
-## BƯỚC 6 — Block gợi ý follow-up (luôn append cuối báo cáo)
-
-Sau khi trình bày xong báo cáo tổng quan, thêm đúng block text này:
+## BƯỚC 7 — Block gợi ý follow-up (append 1 lần sau brief)
 
 ```
 ---
-
-**Muốn đào sâu thêm? Cứ hỏi tự do:**
-- "Xem chi tiết queries của URL [paste URL]" — drill-down 1 trang
-- "So với cùng kỳ năm ngoái" — phân tích YoY
-- "Chạy báo cáo đầy đủ" — full mode (top 50 thay vì top 15, include tất cả URL thay đổi)
-- "Lưu báo cáo này ra Google Sheets" — export 20 tabs (cần Sheet ID)
-- "So sánh tất cả profiles của tôi" — batch view across sites
-- "Check nhanh traffic hôm nay" — quick-check anomaly
-- "Phân tích kỳ khác: 7 ngày / tháng trước / 90 ngày / 6 tháng"
-- Hoặc hỏi tự do: "tại sao URL X giảm?", "có cơ hội CTR nào lớn?", "nhóm content nào yếu?"
+**Hỏi tiếp:**
+- "Phân tích 30 ngày" / "tháng qua" (period mới)
+- "Đổi sang GA4" / "Đổi sang GSC" (đổi source)
+- "Tụt URL nào" / "Tụt từ khóa nào" / "Vì sao tụt"
+- "Tăng URL nào" / "Tăng từ khóa nào"
+- "KPI cần bù bao nhiêu/ngày" (nếu chưa cài, sẽ hỏi target trước)
+- "Nhóm chủ đề nào tăng/tụt"
+- "Chi tiết 24h theo giờ" (chỉ GSC)
+- "Queries của URL [paste URL]" (drill-down 1 trang)
 ```
 
 ---
 
 ## Follow-up — Routing theo intent
 
-Khi user hỏi tiếp sau báo cáo tổng quan, route theo từ khóa trong câu hỏi:
+| Intent user nói | Action |
+|-----------------|--------|
+| "30 ngày", "tháng qua", "14 ngày", "tuần này" | Re-run `--brief PERIOD --source SOURCE --profile P` (period: `30d`/`14d`/`this_week`...) |
+| "Đổi GA4", "sessions" | Re-run brief với `--source ga4` |
+| "Đổi GSC", "clicks" | Re-run brief với `--source gsc` |
+| "Tụt URL nào", "URL giảm" | Chạy `main.py 30d --mode quick --profile P` (nếu chưa cache), đọc `url_changes.declining`, render top 5 dạng bảng: URL · Sessions/Clicks · Δ% · `diagnosis_code`. Một dòng compose từ code (xem bảng dưới). KHÔNG render section khác. |
+| "Tụt từ khóa", "query giảm" | Đọc `query_analysis.declining_queries` (cùng JSON), render top 10: Query · Clicks · Prev · Δ% · Position |
+| "Vì sao tụt" | Với từng URL/query đang quan tâm: kết hợp `diagnosis_code` + `signals` → compose 1 câu (xem bảng codes). Nếu cần thêm context cho URL cụ thể, chạy `--drill-url`. |
+| "Tăng URL nào", "URL tăng" | Đọc `url_changes.growing`, render top 5 |
+| "Tăng từ khóa", "query tăng" | Đọc `query_analysis.growing_queries`, top 10 |
+| "KPI cần bù" hoặc "KPI X clicks/tháng" | Nếu chưa có target: AskUserQuestion "KPI tháng là bao nhiêu? (clicks GSC / sessions GA4)" → re-run brief với `--kpi N --kpi-source X`. Render KPI block, KÈM caveat: "GSC có lead time 2–3 ngày; tăng SEO effort hôm nay sẽ phản ánh sau 2–3 ngày + cần khối lượng công việc (content/link) — không bù được trong 1 ngày." Sau khi render, hỏi: "Lưu KPI này vào profile?" → nếu Yes, chạy `manage_accounts.py update --name P --kpi-target N --kpi-source X`. |
+| "Nhóm nào", "chủ đề nào", "cluster" | Chạy `main.py 30d --mode quick --profile P`, đọc `groups` (nếu có Sheet) hoặc `slug_clusters`, render top 5 tăng + top 5 tụt theo sessions/clicks |
+| "24h theo giờ", "hourly" | Re-run `--brief --last-24h --source gsc`. Render bảng 24 dòng (giờ HH:00 → clicks/impressions/ctr/pos), highlight 2-3 giờ peak/low |
+| "Queries của URL X" | `main.py 30d --drill-url "URL" --profile P` |
+| "Cùng kỳ năm ngoái" | Re-run brief: hiện chưa có flag `--compare-yoy` cho brief — fallback dùng `main.py 30d --compare-yoy --profile P` (full mode) |
+| "Đầy đủ", "full report" | Escape hatch: `main.py 30d --mode full --profile P` (full 13-section JSON — dùng khi user yêu cầu RÕ) |
+| "Lưu Sheets" | Hỏi Sheet ID → `main.py 30d --profile P --export-sheet ID` (lưu ý: brief mode chưa support export; cần chạy full để export) |
+| "Bất thường", "check nhanh" | `main.py --quick-check --profile P` |
+| "Tất cả site", "batch" | `main.py 30d --all-profiles` |
 
-| Intent | Từ khóa | Lệnh |
-|--------|---------|------|
-| Drill-down URL | "queries của", "tại sao URL X", "chi tiết trang" | `main.py 30d --drill-url "URL" --profile P` |
-| YoY | "cùng kỳ năm ngoái", "YoY", "so năm trước" | `main.py 30d --compare-yoy --profile P` |
-| Full report | "đầy đủ", "full", "review toàn site", "sâu hơn" | `main.py 30d --mode full --profile P` |
-| Export Sheets | "lưu ra Sheets", "export", "xuất Sheet" | Hỏi Sheet ID → `main.py 30d --profile P --export-sheet ID` |
-| Batch | "tất cả site", "tất cả profile", "so sánh các site" | `main.py 30d --all-profiles` |
-| Quick check | "hôm nay", "hôm qua", "bất thường", "check nhanh" | `main.py --quick-check --profile P` |
-| Kỳ khác | "7 ngày", "tháng trước", "90 ngày", "6 tháng", "tuần này" | `main.py PERIOD --mode quick --profile P` |
-| Focus content decay | "bài mất traffic", "content decay" | Re-run + highlight `content_decay` + `url_changes.declining` |
-| Focus CTR/traffic potential | "easy wins", "CTR opportunity", "traffic tiềm năng" | Re-run + highlight `ctr_opportunities` + `traffic_potential` |
-| Focus query | "query", "từ khóa", "branded" | Re-run + highlight `query_analysis` |
-| Focus KPI | "KPI", "mục tiêu tháng" | Re-run + highlight `kpi` |
+Period mapping câu hỏi tự do: "7 ngày" → `7d` | "14 ngày" → `14d` | "30 ngày"/"tháng qua" → `30d` | "60 ngày" → `60d` | "90 ngày" → `90d`. KHÔNG dùng `this_month`/`last_month` cho brief (brief dùng sliding window).
 
-Period mapping cho câu hỏi tự do: "7 ngày" → `7d` | "tháng này" → `this_month` | "tháng trước" → `last_month` | "90 ngày" → `90d` | "6 tháng" → `6m` | "tuần này" → `this_week`.
-
-Sau mỗi follow-up, **không cần lặp lại block gợi ý** (chỉ append 1 lần duy nhất sau báo cáo tổng quan đầu tiên).
+Sau mỗi follow-up, **không lặp lại block gợi ý** (chỉ append 1 lần duy nhất sau brief đầu tiên).
 
 ---
 
-## Quy trình phân tích chuẩn
+## Diagnosis codes — convention compose
 
-Trình bày theo thứ tự: macro → micro. Bắt đầu bằng kết luận, chi tiết theo sau.
+Khi render URL tăng/tụt, dùng bảng này để compose 1 câu Việt từ `diagnosis_code` + `signals` (raw deltas). KHÔNG copy nguyên text generic; phải nhúng số thực từ signals.
 
-### 0. Cảnh báo bất thường (`anomaly`)
-**Luôn kiểm tra trước tiên.** Nếu `anomaly.status == "anomaly"`: trình bày ngay đầu báo cáo.
-- Ngày gần nhất có dữ liệu: clicks, impressions, so với trung bình 7 ngày
-- Mức độ deviation và hypothesis (deindex / update / traffic spike)
-- Nếu status == "normal": ghi một dòng "Traffic ngày [date]: bình thường."
+| Code | Signals nhìn vào | Cách compose (mẫu) |
+|------|------------------|---------------------|
+| `ranking_drop` | position_change > +2 | "Position tụt từ X → Y (+Δ vị trí)" |
+| `impression_drop` | impressions_change_pct < -20 | "Volume query giảm Δ% — có thể trend/seasonal" |
+| `ctr_drop` | impressions ổn, ctr_change_pp < -2 | "CTR giảm Δ pp dù impressions ổn — SERP feature hoặc title/meta yếu" |
+| `intent_drift` | impressions +10% nhưng sessions giảm | "Google show nhiều hơn nhưng user không click — intent mismatch" |
+| `growing_position` | position_change < -2 | "Ranking cải thiện X → Y" |
+| `growing_volume` | impressions +20% | "Search volume tăng Δ%" |
+| `growing_ctr` | ctr_change_pp > +2 | "CTR cải thiện Δ pp — title/snippet tốt hơn" |
+| `non_seo` | has_gsc_data = false | "Không có signal GSC — non-organic (Direct/Social/Referral)" |
+| `growing_other` / `declining_other` | có GSC data nhưng không match pattern | "Multiple weak signals — cần drill-down" |
+| `stable` | tất cả Δ < threshold | (skip — không render) |
 
-### 1. KPI & Tiến độ tháng (`kpi`)
-Nếu kpi != null:
-
-| Chỉ số | Giá trị |
-|--------|---------|
-| Mục tiêu tháng | X clicks/sessions |
-| Đã đạt (hôm nay là ngày N) | Y — Z% mục tiêu |
-| Trung bình ngày hiện tại | A/ngày |
-| Cần đạt (để hit KPI) | B/ngày |
-| Dự báo cuối tháng | C (X% mục tiêu) |
-| Trạng thái | On track / Cần tăng tốc |
-
-### 2. Sức khỏe tổng thể (`summary` + `compare`)
-- Sessions, Engaged sessions, Users (new/returning), Clicks, Impressions — so kỳ trước (% thay đổi)
-- Engagement rate, avg session duration
-- CTR trung bình, avg position
-- Channel breakdown: top channels + % thay đổi
-- Device split (GA4 + GSC): mobile vs desktop — sessions, CTR, position
-- Country top 5 nếu có dữ liệu đáng chú ý
-
-### 3. Phân phối ranking (`position_distribution`)
-Nếu compare:
-
-| Tier | Kỳ này | Kỳ trước | Thay đổi |
-|------|--------|----------|----------|
-| Top 3 | X URLs | Y URLs | +/- N |
-| Top 10 | ... | ... | ... |
-| Top 20 | ... | ... | ... |
-| 20+ | ... | ... | ... |
-
-Nhận xét: domain đang cải thiện hay suy giảm tổng thể.
-
-### 4. Phân tích theo nhóm (`groups` hoặc `slug_clusters`)
-- Nếu có Google Sheet: dùng `groups` — top nhóm theo sessions/clicks, nhóm bất thường
-- Nếu không có Sheet: dùng `slug_clusters` — tự cluster theo URL slug, Claude tự gom nhóm thêm theo ngữ nghĩa
-- Highlight: nhóm CTR thấp dù impressions cao, nhóm có engaged_sessions/session thấp
-
-### 5. URL tăng/giảm — Chẩn đoán (`url_changes`)
-**Phần quan trọng nhất của báo cáo.**
-
-Trình bày 2 bảng:
-
-**URLs tăng traffic** (top theo sessions tăng tuyệt đối):
-
-| URL (slug) | Sessions | Thay đổi | Diagnosis | Cơ hội tiếp theo |
-|------------|----------|----------|-----------|-----------------|
-
-**URLs giảm traffic** (theo % giảm):
-
-| URL (slug) | Sessions | Thay đổi | Diagnosis | Hành động đề xuất |
-|------------|----------|----------|-----------|-------------------|
-
-Với mỗi URL giảm: phân tích rõ — ranking drop, trend, SERP feature, hay intent mismatch.
-Nếu `full_mode`: include tất cả; `quick_mode`: top 15 mỗi nhóm.
-
-### 6. Content Decay sâu (`content_decay`)
-Bài mất > threshold% sessions. Field `decay_cause` phân loại nguyên nhân:
-- `ranking_drop` — vị trí tụt >3 + impressions giảm → update content, build link
-- `query_trend` — impressions giảm mạnh, position ổn → seasonal/trend check, pivot topic
-- `ctr_issue` — impressions ổn nhưng CTR giảm → tối ưu title/meta, SERP feature check
-- `non_seo` — không có tín hiệu GSC rõ → kiểm tra direct/social/paid traffic
-
-### 7. Phân tích query (`query_analysis`)
-
-**7a. Top queries** — bảng top 20 (quick) hoặc top 50 (full): clicks, impressions, CTR, position
-
-**7b. Branded vs Non-branded** (nếu có brand_keywords):
-- Branded: X clicks (Y%), Non-branded: A clicks (B%)
-- Nhận xét: nếu branded > 50% → phụ thuộc brand, SEO yếu
-
-**7c. Queries tăng/giảm** — top 10 growing, top 10 declining vs kỳ trước
-
-**7d. Queries mới** — xuất hiện kỳ này, min 30 impressions — signal topic mới nổi
-
-**7e. Impression-only queries** — rank 15+, CTR < 1%, impressions > 100 — target content mới hoặc tối ưu để lên Top 10
-
-### 8. CTR Opportunities (`ctr_opportunities`)
-- Queries CTR thấp hơn expected > 30%, sorted by `potential_extra_clicks`
-- Gợi ý title: thêm số, year, CTA, power word
-- Tổng `potential_extra_clicks` nếu fix tất cả
-
-### 9. Traffic Potential — Easy Wins (`traffic_potential`)
-- Trang rank 4–20, impressions cao
-- Estimate clicks nếu tăng lên Top 3
-- Action: on-page, internal link, build link
-
-### 10. Keyword Cannibalization (`keyword_cannibalization`)
-- Query có ≥2 URL cạnh tranh
-- Winner (nhiều clicks nhất) vs challenger
-- Đề xuất: canonical, merge content, 301
-
-### 11. Device & Country (`device_breakdown_ga4`, `device_breakdown_gsc`, `country_breakdown_gsc`)
-Chỉ trình bày nếu có dữ liệu đáng chú ý:
-- Mobile vs Desktop: sessions, CTR, position — nếu mobile CTR thấp hơn desktop >30%, flag
-- Top 5 quốc gia theo clicks — nếu có quốc gia ngoài dự kiến tăng đột biến, note
-
-### 12. Watch List (`watchlist_report`)
-Nếu `watchlist_report` không rỗng, trình bày bảng riêng:
-
-| URL | Note | Clicks | Prev | Thay đổi | Position | Prev | Thay đổi |
-|-----|------|--------|------|----------|----------|------|----------|
-
-Highlight URL nào có clicks giảm >20% hoặc position tụt >3. Gợi ý hành động tiếp theo cho từng URL.
-
-### 13. Action Plan
-
-| Hành động | URL / Query | Impact ước tính | Effort | Ưu tiên |
-|-----------|-------------|-----------------|--------|---------|
-| ... | ... | +X clicks/tháng | Thấp/Trung/Cao | P1/P2/P3 |
-
-Tối thiểu: 1 quick win (< 1 ngày), 1 chiến lược 30–90 ngày.
-Watch list: 3–5 metric cần theo dõi kỳ tới.
+Khi render `content_decay.decay_cause` (từ `analyze_decay`): dùng tương tự enum `ranking_drop / query_trend / ctr_issue / non_seo`.
 
 ---
 
@@ -448,40 +393,44 @@ Watch list: 3–5 metric cần theo dõi kỳ tới.
 cd ~/.claude/skills/seo-analyst
 
 # Xem danh sách
-.venv/bin/python manage_accounts.py list
-.venv/bin/python manage_accounts.py show --name blog-abc
+bash run.sh manage_accounts.py list
+bash run.sh manage_accounts.py show --name blog-abc
 
 # Đổi default / xóa
-.venv/bin/python manage_accounts.py default --name blog-abc
-.venv/bin/python manage_accounts.py remove --name blog-abc
+bash run.sh manage_accounts.py default --name blog-abc
+bash run.sh manage_accounts.py remove --name blog-abc
 
 # Cập nhật thông tin cơ bản
-.venv/bin/python manage_accounts.py update --name blog-abc --ga4-id 999
-.venv/bin/python manage_accounts.py update --name blog-abc --gsc-url https://example.com/
+bash run.sh manage_accounts.py update --name blog-abc --ga4-id 999
+bash run.sh manage_accounts.py update --name blog-abc --gsc-url https://example.com/
 
 # Cập nhật KPI tháng
-.venv/bin/python manage_accounts.py update --name blog-abc --kpi-target 5000 --kpi-source gsc
+bash run.sh manage_accounts.py update --name blog-abc --kpi-target 5000 --kpi-source gsc
 # kpi-source: gsc = đo clicks, ga4 = đo sessions
 
 # Cập nhật brand keywords
-.venv/bin/python manage_accounts.py update --name blog-abc --brand-keywords "mybrand,my brand,brand.com"
+bash run.sh manage_accounts.py update --name blog-abc --brand-keywords "mybrand,my brand,brand.com"
 
 # Điều chỉnh ngưỡng phát hiện
-.venv/bin/python manage_accounts.py update --name blog-abc --decay-threshold 25 --anomaly-threshold 40
+bash run.sh manage_accounts.py update --name blog-abc --decay-threshold 25 --anomaly-threshold 40
 ```
 
 ---
 
-## Quick check — traffic hôm nay/hôm qua
+## Quick check — anomaly siêu nhanh (3–5s)
 
-Khi user hỏi "traffic hôm nay thế nào?", "có gì bất thường không?", "check nhanh":
+Khi user chỉ muốn check bất thường (không cần KPI/24h/delta), dùng quick-check (rẻ hơn brief vì không fetch hourly + previous period):
 
 ```bash
-cd ~/.claude/skills/seo-analyst && .venv/bin/python scripts/main.py --quick-check --profile "PROFILE_NAME" 2>&1
+cd ~/.claude/skills/seo-analyst && bash run.sh scripts/main.py --quick-check --profile "PROFILE_NAME" 2>&1
 ```
 
-Chỉ fetch 9 ngày GSC daily, xong trong 3–5 giây. Output gồm `anomaly` và `gsc_daily`.
-Trình bày theo **Mục 0 (Cảnh báo bất thường)** trong Quy trình phân tích chuẩn.
+Fetch 9 ngày GSC daily. Output gồm `anomaly` + `gsc_daily`. Render 1 dòng:
+```
+Traffic ngày [most_recent_date]: [normal / alert] — [clicks] clicks ([deviation_pct]% vs avg 7 ngày)
+```
+
+**Khi nào dùng quick-check thay vì brief?** Khi user chỉ hỏi 1 câu cụ thể về anomaly. Brief làm nhiều hơn (delta + KPI + 24h hourly).
 
 ---
 
@@ -490,12 +439,12 @@ Trình bày theo **Mục 0 (Cảnh báo bất thường)** trong Quy trình phâ
 Khi user muốn xem chi tiết queries của 1 URL cụ thể sau khi đọc báo cáo:
 
 ```bash
-cd ~/.claude/skills/seo-analyst && .venv/bin/python scripts/main.py PERIOD --drill-url "https://example.com/path/" --profile "PROFILE_NAME" 2>&1
+cd ~/.claude/skills/seo-analyst && bash run.sh scripts/main.py PERIOD --drill-url "https://example.com/path/" --profile "PROFILE_NAME" 2>&1
 ```
 
 Ví dụ:
 ```bash
-.venv/bin/python scripts/main.py 30d --drill-url "https://example.com/bai-viet-abc/" --profile elitedental 2>&1
+bash run.sh scripts/main.py 30d --drill-url "https://example.com/bai-viet-abc/" --profile elitedental 2>&1
 ```
 
 Output: tất cả queries cho URL đó kỳ này và kỳ trước — clicks, impressions, CTR, position, thay đổi so sánh.
@@ -508,7 +457,7 @@ Trình bày dạng bảng, sort theo clicks. Highlight queries tăng/giảm mạ
 Thêm flag `--compare-yoy` để so sánh với cùng kỳ năm ngoái thay vì kỳ liền trước:
 
 ```bash
-cd ~/.claude/skills/seo-analyst && .venv/bin/python scripts/main.py 30d --compare-yoy --profile "PROFILE_NAME" 2>&1
+cd ~/.claude/skills/seo-analyst && bash run.sh scripts/main.py 30d --compare-yoy --profile "PROFILE_NAME" 2>&1
 ```
 
 Output giống phân tích thường, nhưng cột "kỳ trước" là cùng tháng năm ngoái. Trường `compare.compare_type` = `"yoy"`. Trình bày rõ "So với cùng kỳ năm 2025" trong báo cáo.
@@ -520,7 +469,7 @@ Output giống phân tích thường, nhưng cột "kỳ trước" là cùng th�
 Chạy một lần, lấy summary của tất cả profiles đã cấu hình:
 
 ```bash
-cd ~/.claude/skills/seo-analyst && .venv/bin/python scripts/main.py 30d --all-profiles 2>&1
+cd ~/.claude/skills/seo-analyst && bash run.sh scripts/main.py 30d --all-profiles 2>&1
 ```
 
 Output: `{"mode": "batch", "profiles": {"elitedental": {...}, "osakar": {...}}}`.
@@ -539,16 +488,18 @@ Highlight profile nào có anomaly hoặc KPI off-track.
 Sau khi phân tích, lưu toàn bộ kết quả vào Google Sheet:
 
 ```bash
-cd ~/.claude/skills/seo-analyst && .venv/bin/python scripts/main.py 30d --profile "PROFILE_NAME" --export-sheet "SHEET_ID" 2>&1
+cd ~/.claude/skills/seo-analyst && bash run.sh scripts/main.py 30d --profile "PROFILE_NAME" --export-sheet "SHEET_ID" 2>&1
 ```
 
 `SHEET_ID` lấy từ URL Sheet: `docs.google.com/spreadsheets/d/**{SHEET_ID}**/edit`.
 
 Các tab được tạo: Summary, KPI, Growing URLs, Declining URLs, Top Queries, Growing Queries, Declining Queries, New Queries, Impression Only, CTR Opportunities, Traffic Potential, Content Decay, Cannibalization, Watchlist, Daily Trend, Weekly Trend, Position Distribution, Device GA4, Device GSC, Country.
 
-**Lưu ý:** Cần scope ghi Sheets. Nếu gặp lỗi 403, user cần re-auth:
+**Lưu ý:** Cần scope ghi Sheets. Nếu gặp lỗi 403, re-auth:
 ```bash
-cd ~/.claude/skills/seo-analyst && .venv/bin/python manage_accounts.py auth --name PROFILE_NAME
+cd ~/.claude/skills/seo-analyst && bash run.sh scripts/setup_flow.py auth-url --name PROFILE_NAME 2>&1
+# user paste URL → chạy tiếp:
+cd ~/.claude/skills/seo-analyst && bash run.sh scripts/setup_flow.py auth-complete --name PROFILE_NAME --redirect-url "URL" 2>&1
 ```
 
 ---
@@ -561,14 +512,14 @@ Watch list lưu danh sách URL quan trọng, tự động báo cáo mỗi lần 
 cd ~/.claude/skills/seo-analyst
 
 # Thêm URL vào watch list
-.venv/bin/python manage_accounts.py watchlist-add --name PROFILE_NAME --url "https://example.com/page/" --note "Landing page campaign Q2"
+bash run.sh manage_accounts.py watchlist-add --name PROFILE_NAME --url "https://example.com/page/" --note "Landing page campaign Q2"
 
 # Xem watch list
-.venv/bin/python manage_accounts.py watchlist-show
-.venv/bin/python manage_accounts.py watchlist-show --name PROFILE_NAME
+bash run.sh manage_accounts.py watchlist-show
+bash run.sh manage_accounts.py watchlist-show --name PROFILE_NAME
 
 # Xóa URL khỏi watch list
-.venv/bin/python manage_accounts.py watchlist-remove --name PROFILE_NAME --url "https://example.com/page/"
+bash run.sh manage_accounts.py watchlist-remove --name PROFILE_NAME --url "https://example.com/page/"
 ```
 
 Watch list tự động xuất hiện trong mục **12. Watch List** mỗi lần chạy phân tích thường (không cần flag thêm).
@@ -580,8 +531,9 @@ Watch list tự động xuất hiện trong mục **12. Watch List** mỗi lần
 | Lỗi | Fix |
 |-----|-----|
 | Python3 not found | Cài Python 3.9+ từ python.org |
-| OAuth client not configured | Chạy lại Bước 1b |
+| OAuth client not configured | `manage_accounts.py set-oauth-client ~/.claude/skills/cro-setup/oauth_client.json` |
 | "This site can't be reached" khi copy URL | Bình thường — copy URL từ address bar |
 | Permission GA4/GSC | Account Google cần quyền Viewer trong GA4 và Full User trong GSC |
-| API not enabled | GCP → APIs & Services → bật 4 API (xem Bước 1b) |
-| Export 403 Forbidden | Re-auth để cấp scope ghi Sheets: `manage_accounts.py auth --name PROFILE` |
+| API not enabled | GCP → APIs & Services → bật API cần thiết |
+| `invalid_grant` / `invalid_client` / lỗi auth khi fetch data | Token hết hạn — re-auth ngay: chạy `auth-url --name PROFILE` → user paste URL → `auth-complete` (không cần auto-save, profile đã có) |
+| Export 403 Forbidden | Token chưa có scope ghi Sheets — re-auth: `auth-url --name PROFILE` → paste → `auth-complete` |

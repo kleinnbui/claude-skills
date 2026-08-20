@@ -86,6 +86,42 @@ def by_channel(start: str, end: str, profile: str | None = None) -> list[dict]:
     ]
 
 
+def by_date(start: str, end: str, profile: str | None = None) -> list[dict]:
+    """Site-wide daily totals. Lightweight — for brief dashboard."""
+    cfg = load_config(profile)
+    resp = _client(profile).run_report(RunReportRequest(
+        property=_property(cfg),
+        dimensions=[Dimension(name="date")],
+        metrics=[
+            Metric(name="sessions"),
+            Metric(name="totalUsers"),
+            Metric(name="newUsers"),
+            Metric(name="screenPageViews"),
+            Metric(name="engagementRate"),
+            Metric(name="engagedSessions"),
+            Metric(name="averageSessionDuration"),
+        ],
+        date_ranges=[DateRange(start_date=start, end_date=end)],
+        limit=400,
+    ))
+    return sorted(
+        [
+            {
+                "date": r.dimension_values[0].value,
+                "sessions": int(r.metric_values[0].value),
+                "users": int(r.metric_values[1].value),
+                "new_users": int(r.metric_values[2].value),
+                "pageviews": int(r.metric_values[3].value),
+                "engagement_rate": round(float(r.metric_values[4].value), 4),
+                "engaged_sessions": int(r.metric_values[5].value),
+                "avg_session_duration": round(float(r.metric_values[6].value), 1),
+            }
+            for r in resp.rows
+        ],
+        key=lambda x: x["date"],
+    )
+
+
 def by_device(start: str, end: str, profile: str | None = None) -> list[dict]:
     cfg = load_config(profile)
     resp = _client(profile).run_report(RunReportRequest(
